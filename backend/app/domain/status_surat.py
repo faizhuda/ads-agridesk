@@ -1,0 +1,8 @@
+from enum import Enum
+
+class StatusSurat(str, Enum):
+    DRAFT = "DRAFT"
+    MENUNGGU_TTD_DOSEN = "MENUNGGU_TTD_DOSEN"
+    MENUNGGU_PROSES_ADMIN = "MENUNGGU_PROSES_ADMIN"
+    SELESAI = "SELESAI"
+    DITOLAK = "DITOLAK"
