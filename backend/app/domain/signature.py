@@ -1,19 +1,33 @@
-from datetime import datetime
-from app.utils.hash_generator import HashGenerator
+from datetime import datetime, timezone
+
 
 class Signature:
+    """Domain entity representing a signature on a surat.
 
-    def __init__(self, owner_id: int, role: str, image_path: str):
+    A signature is created in *pending* state (``signed_at`` is None) when a
+    dosen is assigned to sign a letter.  The ``sign`` method completes the
+    signing action.
+    """
+
+    def __init__(self, owner_id: int, role: str, image_path: str | None = None):
+        self.signature_id: int | None = None
+        self.surat_id: int | None = None
         self.owner_id = owner_id
-        self.role = role  # "MAHASISWA" atau "DOSEN"
+        self.role = role
         self.image_path = image_path
-        self.signed_at = datetime.utcnow()
-        self.signature_hash = None
+        self.signed_at: datetime | None = None
+        self.signature_hash: str | None = None
+        self.created_at = None
+        self.updated_at = None
 
-    def attach_hash(self, hash_value: str):
+    def sign(self, image_path: str, signature_hash: str):
+        """Complete the signing action."""
+        self.image_path = image_path
+        self.signature_hash = signature_hash
+        self.signed_at = datetime.now(timezone.utc)
+
+    def is_signed(self) -> bool:
+        return self.signed_at is not None
+
+    def set_signature_hash(self, hash_value: str):
         self.signature_hash = hash_value
-
-    def generate_signature_hash(self, surat_id: int):
-        self.signature_hash = HashGenerator.generate_signature_hash(
-            surat_id, self.owner_id
-        )

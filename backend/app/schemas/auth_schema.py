@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from app.domain.user import UserRole
+from typing import Optional
 
 
 class RegisterRequest(BaseModel):
@@ -7,3 +8,5 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     role: UserRole
+    nim: Optional[str] = None
+    nip: Optional[str] = None
