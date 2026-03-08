@@ -11,5 +11,6 @@ python-multipart>=0.0.20
 qrcode[pil]>=8.0
 reportlab>=4.2
 Pillow>=11.0
+pypdf>=5.0
 pytest>=8.3
 httpx>=0.28

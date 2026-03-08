@@ -36,3 +36,10 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+
+
+class LecturerSearchResponse(BaseModel):
+    id: int
+    name: str
+    nip: Optional[str] = None
+    email: str

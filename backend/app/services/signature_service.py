@@ -80,6 +80,9 @@ class SignatureService:
     def get_pending_for_lecturer(self, lecturer_id: int) -> List[SignatureModel]:
         return self.signature_repo.get_pending_for_lecturer(lecturer_id)
 
+    def get_signed_for_lecturer(self, lecturer_id: int) -> List[SignatureModel]:
+        return self.signature_repo.get_signed_for_lecturer(lecturer_id)
+
     def get_signatures_for_surat(self, surat_id: int) -> List[SignatureModel]:
         return self.signature_repo.get_by_surat_id(surat_id)
 

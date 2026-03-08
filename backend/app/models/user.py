@@ -16,6 +16,7 @@ class UserModel(Base):
     role = Column(SAEnum(UserRole), nullable=False)
     nim = Column(String, unique=True, nullable=True)
     nip = Column(String, unique=True, nullable=True)
+    signature_image_path = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

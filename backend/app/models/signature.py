@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -21,3 +23,19 @@ class SignatureModel(Base):
 
     surat = relationship("SuratModel", back_populates="signatures")
     owner = relationship("UserModel", back_populates="signatures")
+
+    @property
+    def surat_jenis(self) -> Optional[str]:
+        return self.surat.jenis if self.surat else None
+
+    @property
+    def mahasiswa_name(self) -> Optional[str]:
+        return self.surat.mahasiswa.name if self.surat and self.surat.mahasiswa else None
+
+    @property
+    def owner_name(self) -> Optional[str]:
+        return self.owner.name if self.owner else None
+
+    @property
+    def owner_nip(self) -> Optional[str]:
+        return self.owner.nip if self.owner else None

@@ -1,5 +1,6 @@
 from typing import Optional, List
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.user import UserModel
@@ -33,6 +34,20 @@ class UserRepository:
     def get_lecturers(self) -> List[UserModel]:
         from app.domain.enums import UserRole
         return self.db.query(UserModel).filter(UserModel.role == UserRole.DOSEN).all()
+
+    def search_lecturers(self, keyword: str, limit: int = 10) -> List[UserModel]:
+        from app.domain.enums import UserRole
+
+        query = self.db.query(UserModel).filter(UserModel.role == UserRole.DOSEN)
+        if keyword.strip():
+            pattern = f"%{keyword.strip()}%"
+            query = query.filter(
+                or_(
+                    UserModel.name.ilike(pattern),
+                    UserModel.nip.ilike(pattern),
+                )
+            )
+        return query.order_by(UserModel.name.asc()).limit(limit).all()
 
     def update(self, user: UserModel) -> UserModel:
         self.db.commit()

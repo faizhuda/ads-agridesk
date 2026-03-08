@@ -179,3 +179,35 @@ class TestSuratServiceReject:
         result = service.reject_letter(surat.id, admin.id, UserRole.ADMIN.value, "Dokumen tidak lengkap")
         assert result.status == SuratStatus.DITOLAK
         assert result.rejection_reason == "Dokumen tidak lengkap"
+
+    def test_dosen_can_reject_own_pending_signature(self, db):
+        student = _create_student(db)
+        dosen = _create_lecturer(db)
+        service = SuratService(db)
+        surat = service.create_external_letter(
+            mahasiswa_id=student.id,
+            jenis="test",
+            keperluan="test",
+            file_path="/fake.pdf",
+            lecturer_ids=[dosen.id],
+        )
+
+        result = service.reject_letter(surat.id, dosen.id, UserRole.DOSEN.value, "Perlu revisi lampiran")
+        assert result.status == SuratStatus.DITOLAK
+        assert result.rejection_reason == "Perlu revisi lampiran"
+
+    def test_dosen_cannot_reject_not_assigned_pending_signature(self, db):
+        student = _create_student(db)
+        assigned_dosen = _create_lecturer(db, email="assigned@u.id", nip="901")
+        other_dosen = _create_lecturer(db, email="other@u.id", nip="902")
+        service = SuratService(db)
+        surat = service.create_external_letter(
+            mahasiswa_id=student.id,
+            jenis="test",
+            keperluan="test",
+            file_path="/fake.pdf",
+            lecturer_ids=[assigned_dosen.id],
+        )
+
+        with pytest.raises(ValueError, match="bukan pending tanda tangan Anda"):
+            service.reject_letter(surat.id, other_dosen.id, UserRole.DOSEN.value, "Tidak sesuai")

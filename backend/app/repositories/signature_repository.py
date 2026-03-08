@@ -1,8 +1,11 @@
 from typing import Optional, List
 
-from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.signature import SignatureModel
+from app.models.surat import SuratModel
+from app.domain.enums import SuratStatus
 
 
 class SignatureRepository:
@@ -27,10 +30,33 @@ class SignatureRepository:
     def get_pending_for_lecturer(self, lecturer_id: int) -> List[SignatureModel]:
         return (
             self.db.query(SignatureModel)
+            .options(
+                joinedload(SignatureModel.surat).joinedload(SuratModel.mahasiswa)
+            )
+            .join(SuratModel, SignatureModel.surat_id == SuratModel.id)
             .filter(
                 SignatureModel.owner_id == lecturer_id,
                 SignatureModel.signed_at.is_(None),
+                SuratModel.status == SuratStatus.MENUNGGU_TTD_DOSEN,
             )
+            .all()
+        )
+
+    def get_signed_for_lecturer(self, lecturer_id: int) -> List[SignatureModel]:
+        return (
+            self.db.query(SignatureModel)
+            .options(
+                joinedload(SignatureModel.surat).joinedload(SuratModel.mahasiswa)
+            )
+            .join(SuratModel, SignatureModel.surat_id == SuratModel.id)
+            .filter(
+                SignatureModel.owner_id == lecturer_id,
+                or_(
+                    SignatureModel.signed_at.is_not(None),
+                    SuratModel.status == SuratStatus.DITOLAK,
+                ),
+            )
+            .order_by(SignatureModel.signed_at.desc())
             .all()
         )
 

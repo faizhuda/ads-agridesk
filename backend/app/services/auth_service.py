@@ -45,7 +45,8 @@ class AuthService:
         if not user or not verify_password(password, user.password_hash):
             raise ValueError("Email atau password salah")
 
-        token = create_access_token(data={"sub": user.id, "role": user.role.value})
+        # Keep JWT subject as string for standards-compliant decoding.
+        token = create_access_token(data={"sub": str(user.id), "role": user.role.value})
         return {
             "access_token": token,
             "token_type": "bearer",
@@ -56,3 +57,15 @@ class AuthService:
                 "role": user.role.value,
             },
         }
+
+    def search_lecturers(self, query: str, limit: int = 10) -> list[dict]:
+        lecturers = self.user_repo.search_lecturers(query, limit=limit)
+        return [
+            {
+                "id": lecturer.id,
+                "name": lecturer.name,
+                "nip": lecturer.nip,
+                "email": lecturer.email,
+            }
+            for lecturer in lecturers
+        ]

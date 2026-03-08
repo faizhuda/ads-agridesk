@@ -1,4 +1,5 @@
 import os
+import json
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -7,7 +8,10 @@ from app.config import settings
 from app.domain.enums import SuratStatus, UserRole
 from app.models.surat import SuratModel
 from app.models.signature import SignatureModel
+from app.models.letter_template import LetterTemplateModel
 from app.repositories.surat_repository import SuratRepository
+from app.repositories.user_repository import UserRepository
+from app.repositories.letter_template_repository import LetterTemplateRepository
 from app.repositories.signature_repository import SignatureRepository
 from app.repositories.audit_log_repository import AuditLogRepository
 from app.models.audit_log import AuditLogModel
@@ -20,8 +24,32 @@ class SuratService:
     def __init__(self, db: Session):
         self.db = db
         self.surat_repo = SuratRepository(db)
+        self.user_repo = UserRepository(db)
+        self.template_repo = LetterTemplateRepository(db)
         self.signature_repo = SignatureRepository(db)
         self.audit_repo = AuditLogRepository(db)
+
+    def get_internal_templates(self) -> List[dict]:
+        templates = self.template_repo.get_internal_templates()
+        results: List[dict] = []
+        for template in templates:
+            required_fields: List[str] = []
+            if template.required_fields:
+                try:
+                    parsed = json.loads(template.required_fields)
+                    if isinstance(parsed, list):
+                        required_fields = [str(x) for x in parsed]
+                except json.JSONDecodeError:
+                    required_fields = []
+            results.append(
+                {
+                    "id": template.id,
+                    "name": template.name,
+                    "description": template.description,
+                    "required_fields": required_fields,
+                }
+            )
+        return results
 
     def create_internal_letter(
         self,
@@ -31,9 +59,26 @@ class SuratService:
         fields: dict,
         lecturer_ids: Optional[List[int]] = None,
     ) -> SuratModel:
+        self._validate_internal_fields(jenis, fields)
+
+        mahasiswa = self.user_repo.get_by_id(mahasiswa_id)
+        if not mahasiswa:
+            raise ValueError("Mahasiswa tidak ditemukan")
+
+        enriched_fields = {
+            "nama": mahasiswa.name,
+            "nim": mahasiswa.nim or "-",
+            **fields,
+        }
+
         # Generate PDF from template
         filename = f"surat_{jenis}_{mahasiswa_id}.pdf"
-        pdf_path = PDFGenerator.generate_from_template(jenis, fields, filename)
+        pdf_path = PDFGenerator.generate_from_template(
+            jenis,
+            enriched_fields,
+            filename,
+            signature_path=mahasiswa.signature_image_path,
+        )
 
         status = SuratStatus.DRAFT
         if lecturer_ids:
@@ -45,6 +90,7 @@ class SuratService:
             keperluan=keperluan,
             is_external=False,
             pdf_path=pdf_path,
+            internal_fields_raw=json.dumps(fields, ensure_ascii=False),
             status=status,
         )
         surat = self.surat_repo.create(surat)
@@ -132,7 +178,17 @@ class SuratService:
         # Generate final PDF
         source_pdf = surat.pdf_path or surat.file_path or ""
         final_filename = f"final_{surat.id}.pdf"
-        final_pdf_path = PDFGenerator.generate_final_pdf(source_pdf, qr_path, final_filename)
+        signed_images = [
+            s.image_path
+            for s in self.signature_repo.get_by_surat_id(surat.id)
+            if s.signed_at is not None and s.image_path
+        ]
+        final_pdf_path = PDFGenerator.generate_final_pdf(
+            source_pdf,
+            qr_path,
+            final_filename,
+            signature_paths=signed_images,
+        )
         surat.pdf_path = final_pdf_path
 
         surat.status = SuratStatus.SELESAI
@@ -143,8 +199,24 @@ class SuratService:
 
     def reject_letter(self, surat_id: int, actor_id: int, actor_role: str, reason: str) -> SuratModel:
         surat = self._get_surat_or_raise(surat_id)
+
+        if not reason or not reason.strip():
+            raise ValueError("Alasan penolakan wajib diisi")
+
+        if actor_role == UserRole.DOSEN.value:
+            if surat.status != SuratStatus.MENUNGGU_TTD_DOSEN:
+                raise ValueError("Dosen hanya dapat menolak surat pada status menunggu TTD dosen")
+
+            signatures = self.signature_repo.get_by_surat_id(surat_id)
+            is_pending_assignee = any(
+                s.owner_id == actor_id and s.role == UserRole.DOSEN and s.signed_at is None
+                for s in signatures
+            )
+            if not is_pending_assignee:
+                raise ValueError("Surat ini bukan pending tanda tangan Anda")
+
         surat.status = SuratStatus.DITOLAK
-        surat.rejection_reason = reason
+        surat.rejection_reason = reason.strip()
         surat = self.surat_repo.update(surat)
 
         self._log_event("SURAT_REJECTED", actor_id, actor_role, surat.id, surat.status.value)
@@ -167,6 +239,29 @@ class SuratService:
         if not surat:
             raise ValueError("Surat tidak ditemukan")
         return surat
+
+    def _validate_internal_fields(self, jenis: str, fields: dict) -> None:
+        template: Optional[LetterTemplateModel] = self.template_repo.get_by_name(jenis)
+        if not template:
+            # Keep backward compatibility for environments where templates
+            # have not been seeded yet.
+            if self.template_repo.get_internal_templates():
+                raise ValueError("Jenis surat internal tidak terdaftar")
+            return
+
+        required_fields: List[str] = []
+        if template.required_fields:
+            try:
+                parsed = json.loads(template.required_fields)
+                if isinstance(parsed, list):
+                    required_fields = [str(x) for x in parsed]
+            except json.JSONDecodeError:
+                required_fields = []
+
+        for key in required_fields:
+            value = fields.get(key)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"Field '{key}' wajib diisi")
 
     def _log_event(self, event: str, actor_id: int, actor_role: str, surat_id: int, status: str):
         log = AuditLogModel(
