@@ -1,54 +1,58 @@
+from sqlalchemy.orm import Session
+
+from app.models.user import UserModel
 from app.repositories.user_repository import UserRepository
-from app.utils.password_utils import PasswordUtils
-from app.utils.jwt_utils import JWTUtils
-from app.domain.user import User, UserRole
-from app.domain.exceptions import UserNotFoundException, InvalidCredentialsError, DuplicateEmailError
+from app.utils.security import hash_password, verify_password, create_access_token
+from app.domain.enums import UserRole
 
 
 class AuthService:
-
-    def __init__(self, repository: UserRepository):
-        self.repository = repository
+    def __init__(self, db: Session):
+        self.user_repo = UserRepository(db)
 
     def register(
         self,
         name: str,
         email: str,
         password: str,
-        role: str,
+        role: UserRole,
         nim: str | None = None,
         nip: str | None = None,
-    ):
-        existing = self.repository.find_by_email(email)
+    ) -> UserModel:
+        existing = self.user_repo.get_by_email(email)
         if existing:
-            raise DuplicateEmailError("Email sudah terdaftar")
+            raise ValueError("Email sudah terdaftar")
 
-        hashed = PasswordUtils.hash_password(password)
-        user = User(
-            user_id=None,
+        if role == UserRole.MAHASISWA and nim:
+            if self.user_repo.get_by_nim(nim):
+                raise ValueError("NIM sudah terdaftar")
+        if role in (UserRole.DOSEN, UserRole.ADMIN) and nip:
+            if self.user_repo.get_by_nip(nip):
+                raise ValueError("NIP sudah terdaftar")
+
+        user = UserModel(
             name=name,
             email=email,
-            password_hash=hashed,
-            role=UserRole(role),
+            password_hash=hash_password(password),
+            role=role,
             nim=nim,
             nip=nip,
         )
-        return self.repository.save(user)
+        return self.user_repo.create(user)
 
-    def login(self, email: str, password: str):
-        user = self.repository.find_by_email(email)
+    def login(self, email: str, password: str) -> dict:
+        user = self.user_repo.get_by_email(email)
+        if not user or not verify_password(password, user.password_hash):
+            raise ValueError("Email atau password salah")
 
-        if not user:
-            raise UserNotFoundException("User tidak ditemukan")
-
-        if not PasswordUtils.verify_password(password, user.password_hash):
-            raise InvalidCredentialsError("Password salah")
-
-        token = JWTUtils.create_access_token({
-            "sub": str(user.user_id),
-            "email": user.email,
-            "role": user.role.value,
-            "name": user.name,
-        })
-
-        return {"access_token": token, "token_type": "bearer"}
+        token = create_access_token(data={"sub": user.id, "role": user.role.value})
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role.value,
+            },
+        }

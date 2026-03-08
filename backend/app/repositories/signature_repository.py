@@ -1,31 +1,50 @@
-from abc import ABC, abstractmethod
-from typing import List
+from typing import Optional, List
 
-from app.domain.signature import Signature
+from sqlalchemy.orm import Session
+
+from app.models.signature import SignatureModel
 
 
-class SignatureRepository(ABC):
+class SignatureRepository:
+    def __init__(self, db: Session):
+        self.db = db
 
-    @abstractmethod
-    def save(self, surat_id: int, signature: Signature) -> Signature:
-        pass
+    def create(self, signature: SignatureModel) -> SignatureModel:
+        self.db.add(signature)
+        self.db.commit()
+        self.db.refresh(signature)
+        return signature
 
-    @abstractmethod
-    def update(self, signature: Signature) -> Signature:
-        pass
+    def get_by_id(self, signature_id: int) -> Optional[SignatureModel]:
+        return self.db.query(SignatureModel).filter(SignatureModel.id == signature_id).first()
 
-    @abstractmethod
-    def find_by_surat_id(self, surat_id: int) -> List[Signature]:
-        pass
+    def get_by_surat_id(self, surat_id: int) -> List[SignatureModel]:
+        return self.db.query(SignatureModel).filter(SignatureModel.surat_id == surat_id).all()
 
-    @abstractmethod
-    def find_by_surat_and_owner(self, surat_id: int, owner_id: int) -> Signature | None:
-        pass
+    def get_by_owner_id(self, owner_id: int) -> List[SignatureModel]:
+        return self.db.query(SignatureModel).filter(SignatureModel.owner_id == owner_id).all()
 
-    @abstractmethod
-    def find_pending_by_owner(self, owner_id: int) -> List[Signature]:
-        pass
+    def get_pending_for_lecturer(self, lecturer_id: int) -> List[SignatureModel]:
+        return (
+            self.db.query(SignatureModel)
+            .filter(
+                SignatureModel.owner_id == lecturer_id,
+                SignatureModel.signed_at.is_(None),
+            )
+            .all()
+        )
 
-    @abstractmethod
-    def find_signed_by_owner(self, owner_id: int) -> List[Signature]:
-        pass
+    def get_unsigned_by_surat(self, surat_id: int) -> List[SignatureModel]:
+        return (
+            self.db.query(SignatureModel)
+            .filter(
+                SignatureModel.surat_id == surat_id,
+                SignatureModel.signed_at.is_(None),
+            )
+            .all()
+        )
+
+    def update(self, signature: SignatureModel) -> SignatureModel:
+        self.db.commit()
+        self.db.refresh(signature)
+        return signature

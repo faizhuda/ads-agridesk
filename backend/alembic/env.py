@@ -1,19 +1,24 @@
 from logging.config import fileConfig
+
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
-from app.database.db import Base
-from app.database.models.audit_log_model import AuditLogModel
-from app.database.models.user_model import UserModel
-from app.database.models.surat_model import SuratModel
-from app.database.models.signature_model import SignatureModel
-from app.core.settings import settings
+from app.config import settings
+from app.database import Base
+
+# Import all models so Base.metadata knows about them
+from app.models.user import UserModel  # noqa: F401
+from app.models.surat import SuratModel  # noqa: F401
+from app.models.signature import SignatureModel  # noqa: F401
+from app.models.audit_log import AuditLogModel  # noqa: F401
+from app.models.letter_template import LetterTemplateModel  # noqa: F401
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 target_metadata = Base.metadata
 
@@ -26,7 +31,6 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
@@ -37,10 +41,8 @@ def run_migrations_online() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
-
         with context.begin_transaction():
             context.run_migrations()
 

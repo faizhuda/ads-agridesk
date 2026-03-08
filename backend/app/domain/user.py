@@ -1,47 +1,34 @@
-from enum import Enum
-from .exceptions import InvalidUserIdentityError
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional
+
+from app.domain.enums import UserRole
 
 
-class UserRole(str, Enum):
-    MAHASISWA = "MAHASISWA"
-    DOSEN = "DOSEN"
-    ADMIN = "ADMIN"
-
-
+@dataclass
 class User:
+    id: Optional[int] = None
+    name: str = ""
+    email: str = ""
+    password_hash: str = ""
+    role: UserRole = UserRole.MAHASISWA
+    nim: Optional[str] = None
+    nip: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    def __init__(
-        self,
-        user_id: int,
-        name: str,
-        email: str,
-        password_hash: str,
-        role: UserRole,
-        nim: str | None = None,
-        nip: str | None = None,
-    ):
-        self.user_id = user_id
-        self.name = name
-        self.email = email
-        self.password_hash = password_hash
-        self.role = role
-        self.nim = nim
-        self.nip = nip
+    def is_mahasiswa(self) -> bool:
+        return self.role == UserRole.MAHASISWA
 
-        self._validate_identity_by_role()
+    def is_dosen(self) -> bool:
+        return self.role == UserRole.DOSEN
 
-    def check_role(self, role: UserRole):
-        return self.role == role
+    def is_admin(self) -> bool:
+        return self.role == UserRole.ADMIN
 
-    def _validate_identity_by_role(self):
-        if self.role == UserRole.MAHASISWA:
-            if not self.nim:
-                raise InvalidUserIdentityError("MAHASISWA wajib memiliki NIM")
-            if self.nip:
-                raise InvalidUserIdentityError("MAHASISWA tidak boleh memiliki NIP")
-
-        if self.role in {UserRole.DOSEN, UserRole.ADMIN}:
-            if not self.nip:
-                raise InvalidUserIdentityError(f"{self.role.value} wajib memiliki NIP")
-            if self.nim:
-                raise InvalidUserIdentityError(f"{self.role.value} tidak boleh memiliki NIM")
+    def get_identifier(self) -> Optional[str]:
+        if self.is_mahasiswa():
+            return self.nim
+        return self.nip
