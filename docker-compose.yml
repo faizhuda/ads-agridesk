@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      # Mount folder uploads agar file tidak hilang jika container mati
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # URL Backend untuk frontend saat build process
+        - VITE_API_BASE_URL=http://localhost:8000
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
