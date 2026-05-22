@@ -205,3 +205,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Abaikan semua file di dalam folder uploads backend, kecuali .gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep
