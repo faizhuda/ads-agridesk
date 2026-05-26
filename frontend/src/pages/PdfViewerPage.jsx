@@ -10,7 +10,7 @@ export default function PdfViewerPage() {
   const backendBase = getApiBaseUrl();
   const pdfUrl = useMemo(
     () => `${backendBase}/api/surat/${id}/pdf?token=${encodeURIComponent(token)}`,
-    [id, token]
+    [id, token, backendBase]
   );
 
   const handleDownload = () => {

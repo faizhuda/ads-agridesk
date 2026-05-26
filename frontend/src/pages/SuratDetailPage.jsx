@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
@@ -39,7 +39,7 @@ export default function SuratDetailPage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const [suratRes, sigRes] = await Promise.all([
         api.get('/api/surat/' + id),
@@ -52,9 +52,9 @@ export default function SuratDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   const handleSubmit = async () => {
     try {
@@ -490,7 +490,7 @@ export default function SuratDetailPage() {
                 <p className="text-sm text-primary/50 italic text-center py-4">Belum ada alur persetujuan.</p>
               ) : (
                 <div className="relative border-l border-sepia-200 ml-3 space-y-8">
-                  {uniqueSigners.map((sig, index) => {
+                  {uniqueSigners.map((sig) => {
                     const isSigned = !!sig.signed_at;
                     const isMe = user.role === 'DOSEN' && sig.owner_id === user.id;
                     return (

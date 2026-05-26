@@ -1,15 +1,10 @@
-import os
-
 import qrcode
 from PIL import Image
-
-from app.config import settings
 
 
 class QRCodeGenerator:
     @staticmethod
     def generate_qr_code(data: str, filename: str) -> str:
-        import qrcode
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_H,

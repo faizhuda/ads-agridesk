@@ -32,8 +32,8 @@ services:
       - USE_S3=false
       - UPLOAD_DIR=uploads
     volumes:
-      # Bind-mount to mini-pc disk so uploads persist across container restarts
-      - /disk/data-01/tristan/data-agd/uploads:/app/uploads
+      # Bind-mount to local directory so uploads persist across container restarts
+      - ./backend/uploads:/app/uploads
     restart: unless-stopped
 
   frontend:

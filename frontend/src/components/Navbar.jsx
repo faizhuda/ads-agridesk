@@ -11,11 +11,24 @@ export default function Navbar() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [notificationLoading, setNotificationLoading] = useState(false);
-  const [dismissedIds, setDismissedIds] = useState(() => {
-    const saved = localStorage.getItem(`agridesk_dismissed_${user?.id}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [dismissedIds, setDismissedIds] = useState([]);
+
+  useEffect(() => {
+    if (user?.id) {
+      const saved = localStorage.getItem(`agridesk_dismissed_${user.id}`);
+      if (saved) {
+        try {
+          setDismissedIds(JSON.parse(saved));
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  }, [user?.id]);
   const notificationPanelRef = useRef(null);
+
+  const mobileNotificationRef = useRef(null);
+  const mobilePanelRef = useRef(null);
 
   const handleLogout = () => {
     logout();
@@ -24,7 +37,11 @@ export default function Navbar() {
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
-      if (notificationPanelRef.current && !notificationPanelRef.current.contains(event.target)) {
+      const isOutsideDesktop = !notificationPanelRef.current || !notificationPanelRef.current.contains(event.target);
+      const isOutsideMobileBtn = !mobileNotificationRef.current || !mobileNotificationRef.current.contains(event.target);
+      const isOutsideMobilePanel = !mobilePanelRef.current || !mobilePanelRef.current.contains(event.target);
+      
+      if (isOutsideDesktop && isOutsideMobileBtn && isOutsideMobilePanel) {
         setIsNotificationOpen(false);
       }
     };
@@ -293,6 +310,7 @@ export default function Navbar() {
           {/* Mobile menu button & notifications */}
           <div className="-mr-2 flex items-center md:hidden gap-2">
             <button
+              ref={mobileNotificationRef}
               type="button"
               onClick={() => setIsNotificationOpen((prev) => !prev)}
               className="relative p-2 text-primary/70 hover:text-primary transition-colors focus:outline-none"
@@ -325,7 +343,7 @@ export default function Navbar() {
 
       {/* Mobile Notification Panel */}
       {isNotificationOpen && (
-        <div className="md:hidden absolute top-20 left-0 right-0 bg-white border-b border-sepia-200 shadow-xl overflow-hidden z-50">
+        <div ref={mobilePanelRef} className="md:hidden absolute top-20 left-0 right-0 bg-white border-b border-sepia-200 shadow-xl overflow-hidden z-50">
           <div className="px-4 py-3 border-b border-sepia-200 bg-ivory flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-primary">Notifikasi</p>

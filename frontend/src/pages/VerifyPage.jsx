@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, ShieldX, Search, User, Clock, FileText, Hash, CheckCircle, XCircle, ChevronRight, AlertTriangle, Download } from 'lucide-react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
@@ -21,9 +21,9 @@ export default function VerifyPage() {
     if (urlHash) {
       performVerification(urlHash);
     }
-  }, [urlHash, location.pathname]);
+  }, [urlHash, location.pathname, performVerification]);
 
-  const performVerification = async (targetHash) => {
+  const performVerification = useCallback(async (targetHash) => {
     let trimmed = targetHash.trim().replace(/^SHA256:\s*/i, '').replace(/\s/g, '');
     if (!trimmed) return;
     setLoading(true);
@@ -43,7 +43,7 @@ export default function VerifyPage() {
       setLoading(false);
       setSearched(true);
     }
-  };
+  }, [isSigRoute]);
 
   const handleVerify = async (e) => {
     e.preventDefault();

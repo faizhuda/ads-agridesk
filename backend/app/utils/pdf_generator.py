@@ -420,6 +420,8 @@ class PDFGenerator:
                 pdf_h = box_h * 0.75
                 pdf_x = box_x + (box_w - pdf_w) / 2
                 pdf_y = box_y + (box_h - pdf_h) / 2
+                
+                sig_qr_filename = f"qr_{sig.signature_hash}.png"
 
                 try:
                     # 1. Background & Border
@@ -438,14 +440,7 @@ class PDFGenerator:
                     except FileNotFoundError:
                         url = f"{settings.BASE_URL}/verify/{document_hash}" if document_hash else f"{settings.BASE_URL}/verify-sig/{sig.signature_hash}"
                         from app.utils.qr_generator import QRCodeGenerator
-                        qr_path = QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
-                        with open(qr_path, "rb") as f:
-                            storage_service.upload_file(f.read(), sig_qr_filename)
-                        # Remove temp file
-                        try:
-                            os.remove(qr_path)
-                        except:
-                            pass
+                        QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
 
                     qr_padding = 4 * scale
                     qr_size = pdf_h - (qr_padding * 2)

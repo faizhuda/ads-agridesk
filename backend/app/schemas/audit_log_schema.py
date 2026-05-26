@@ -8,8 +8,10 @@ class AuditLogResponse(BaseModel):
     event_name: str
     actor_id: Optional[int] = None
     actor_role: Optional[str] = None
+    actor_name: Optional[str] = None
     target_type: Optional[str] = None
     target_id: Optional[int] = None
+    target_name: Optional[str] = None
     status: Optional[str] = None
     metadata_json: Optional[str] = None
     ip_address: Optional[str] = None

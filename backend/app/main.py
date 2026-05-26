@@ -81,6 +81,7 @@ app.include_router(verification_controller.router)
 app.include_router(signature_controller.router)
 app.include_router(notification_controller.router)
 app.include_router(audit_log_controller.router, prefix="/api/audit-logs", tags=["Audit Log"])
+app.include_router(notification_controller.router)
 
 
 @app.on_event("startup")
