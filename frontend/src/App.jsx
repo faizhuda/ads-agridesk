@@ -73,6 +73,9 @@ export default function App() {
             <Route path="/admin/surat" element={
               <ProtectedRoute roles={['ADMIN']}><AllSuratPage /></ProtectedRoute>
             } />
+            <Route path="/surat/all" element={
+              <ProtectedRoute roles={['ADMIN']}><AllSuratPage /></ProtectedRoute>
+            } />
             <Route path="/admin/audit-logs" element={
               <ProtectedRoute roles={['ADMIN']}><AuditLogPage /></ProtectedRoute>
             } />
