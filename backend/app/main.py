@@ -6,7 +6,6 @@ from slowapi.errors import RateLimitExceeded
 
 from app.controllers import (
     auth_controller,
-    user_controller,
     surat_controller,
     verification_controller,
     signature_controller,

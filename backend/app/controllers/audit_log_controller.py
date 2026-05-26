@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domain.user import UserRole
+from app.domain.enums import UserRole
 from app.schemas.audit_log_schema import PaginatedAuditLogResponse
 from app.services.audit_log_service import AuditLogService
 from app.utils.security import get_current_user, require_role
