@@ -14,13 +14,14 @@ export default defineConfig({
     },
   },
   build: {
-    // Prevent Vite from mangling module initialization order,
+    // Prevent Vite/rolldown from mangling module initialization order,
     // which causes "Cannot access 'x' before initialization" in framer-motion.
     rollupOptions: {
       output: {
-        manualChunks: {
-          'framer-motion': ['framer-motion'],
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+        manualChunks: (id) => {
+          if (id.includes('framer-motion')) return 'framer-motion';
+          if (id.includes('react-dom') || id.includes('react-router-dom')) return 'react-vendor';
+          if (id.includes('node_modules/react/')) return 'react-vendor';
         },
       },
     },
