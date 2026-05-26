@@ -25,24 +25,24 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=UserResponse, status_code=201)
 @limiter.limit("5/minute")
-def register(req: Request, request: UserRegisterRequest, db: Session = Depends(get_db)):
+def register(request: Request, body: UserRegisterRequest, db: Session = Depends(get_db)):
     service = AuthService(db)
     user = service.register(
-        name=request.name,
-        email=request.email,
-        password=request.password,
-        role=request.role,
-        nim=request.nim,
-        nip=request.nip,
+        name=body.name,
+        email=body.email,
+        password=body.password,
+        role=body.role,
+        nim=body.nim,
+        nip=body.nip,
     )
     return user
 
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
-def login(req: Request, request: UserLoginRequest, db: Session = Depends(get_db)):
+def login(request: Request, body: UserLoginRequest, db: Session = Depends(get_db)):
     service = AuthService(db)
-    return service.login(email=request.email, password=request.password)
+    return service.login(email=body.email, password=body.password)
 
 
 @router.post("/refresh", response_model=RefreshTokenResponse)
