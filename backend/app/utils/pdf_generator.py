@@ -431,6 +431,7 @@ class PDFGenerator:
                     overlay.rect(pdf_x, pdf_y, pdf_w, pdf_h, fill=0, stroke=1)
 
                     # 2. QR Code
+                    sig_qr_filename = f"sig_qr_{sig.owner_id}.png"
                     try:
                         from app.utils.storage import storage_service
                         storage_service.get_file_content(sig_qr_filename)
