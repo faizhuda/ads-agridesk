@@ -1,49 +1,44 @@
 from sqlalchemy.orm import Session
-
-from app.models.letter_template import LetterTemplateModel
-
+from app.models.surat_template import SuratTemplateModel
 
 DEFAULT_INTERNAL_TEMPLATES = [
     {
-        "name": "Surat Pembatalan Mata Kuliah",
-        "description": "Surat pengajuan pembatalan mata kuliah tertentu.",
-        "template_path": "templates/surat_pembatalan_mata_kuliah.pdf",
-        "required_fields": '["nama_mata_kuliah", "kode_mata_kuliah", "semester", "tahun_akademik", "alasan_pembatalan_kuliah", "dosen_pembimbing", "ketua_program_studi_ilmu_komputer"]',
+        "jenis": "Surat Keterangan Aktif Kuliah",
+        "title": "Surat Keterangan Aktif Kuliah",
+        "fields": [
+            {"name": "keperluan_surat_aktif", "label": "Keperluan", "type": "text"}
+        ]
+    },
+    {
+        "jenis": "Surat Pembatalan Mata Kuliah",
+        "title": "Surat Pembatalan Mata Kuliah (SPMK)",
+        "fields": [
+            {"name": "nama_mata_kuliah", "label": "Nama Mata Kuliah", "type": "text"},
+            {"name": "kode_mata_kuliah", "label": "Kode MK", "type": "text"},
+            {"name": "semester", "label": "Semester", "type": "number"},
+            {"name": "tahun_akademik", "label": "Tahun Akademik", "type": "text"},
+            {"name": "alasan_pembatalan_kuliah", "label": "Alasan Pembatalan", "type": "text"}
+        ]
     }
 ]
 
-
 def seed_default_internal_templates(db: Session) -> bool:
-    """Insert default internal templates if they are missing.
-
-    Returns True when at least one template was added.
-    """
     created = False
-    changed = False
-    existing_names = {
-        name for (name,) in db.query(LetterTemplateModel.name).all()
-    }
-
+    
     for template in DEFAULT_INTERNAL_TEMPLATES:
-        existing = (
-            db.query(LetterTemplateModel)
-            .filter(LetterTemplateModel.name == template["name"])
-            .first()
-        )
+        existing = db.query(SuratTemplateModel).filter(SuratTemplateModel.jenis == template["jenis"]).first()
         if existing:
-            existing.description = template["description"]
-            existing.template_path = template["template_path"]
-            existing.required_fields = template["required_fields"]
-            changed = True
+            existing.title = template["title"]
+            existing.fields = template["fields"]
             continue
 
-        if template["name"] in existing_names:
-            continue
-
-        db.add(LetterTemplateModel(**template))
+        model = SuratTemplateModel(
+            jenis=template["jenis"],
+            title=template["title"],
+            fields=template["fields"]
+        )
+        db.add(model)
         created = True
 
-    if created or changed:
-        db.commit()
-
+    db.commit()
     return created

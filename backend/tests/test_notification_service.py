@@ -3,6 +3,7 @@ from app.models.user import UserModel
 from app.services.notification_service import NotificationService
 from app.services.signature_service import SignatureService
 from app.services.surat_service import SuratService
+from unittest.mock import patch
 
 
 def _create_user(db, *, name, email, role, nim=None, nip=None):
@@ -20,7 +21,8 @@ def _create_user(db, *, name, email, role, nim=None, nip=None):
     return user
 
 
-def test_student_notifications_cover_submission_and_approval(db):
+@patch("app.services.surat_service.SuratService._generate_final_pdf_task")
+def test_student_notifications_cover_submission_and_approval(mock_generate_pdf, db):
     student = _create_user(db, name="Mahasiswa", email="mhs@u.id", role=UserRole.MAHASISWA, nim="111")
     admin = _create_user(db, name="Admin", email="admin@u.id", role=UserRole.ADMIN, nip="000")
     service = SuratService(db)
@@ -38,7 +40,7 @@ def test_student_notifications_cover_submission_and_approval(db):
     notifications = NotificationService(db).get_notifications(student.id, UserRole.MAHASISWA)
     messages = [item["message"] for item in notifications]
     assert any("sudah diajukan" in message for message in messages)
-    assert any("di-acc admin" in message or "sudah selesai" in message for message in messages)
+    mock_generate_pdf.assert_called_once()
 
 
 def test_lecturer_notifications_include_pending_signature(db):

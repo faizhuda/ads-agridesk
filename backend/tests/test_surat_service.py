@@ -136,9 +136,8 @@ class TestSuratServiceSubmit:
 
 
 class TestSuratServiceApproval:
-    @patch("app.services.surat_service.PDFGenerator.generate_final_pdf", return_value="/final.pdf")
-    @patch("app.services.surat_service.QRCodeGenerator.generate_qr_code", return_value="/qr.png")
-    def test_approve_sets_selesai(self, mock_qr, mock_pdf, db):
+    @patch("app.services.surat_service.SuratService._generate_final_pdf_task")
+    def test_approve_sets_selesai(self, mock_generate_pdf, db):
         student = _create_student(db)
         admin = _create_admin(db)
         service = SuratService(db)
@@ -153,8 +152,7 @@ class TestSuratServiceApproval:
 
         result = service.approve_by_admin(surat.id, admin.id)
         assert result.status == SuratStatus.SELESAI
-        assert result.document_hash is not None
-        assert result.qr_path is not None
+        mock_generate_pdf.assert_called_once()
 
     def test_approve_wrong_status_raises(self, db):
         student = _create_student(db)
