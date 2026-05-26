@@ -11,7 +11,7 @@ import {
 
 export default function AllSuratPage() {
   const fetchLetters = useCallback(() => {
-    return api.get('/api/surat/all').then((res) => res.data);
+    return api.get('/api/surat/all').then((res) => res.data.items || res.data);
   }, []);
 
   const filterLetters = useCallback((items, keywordInput, currentFilters) => {

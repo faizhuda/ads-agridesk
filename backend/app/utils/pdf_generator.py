@@ -1,8 +1,11 @@
 import os
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 from io import BytesIO
 from textwrap import wrap
-from typing import Dict, Optional
+from typing import Dict, Optional, Union, List
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -106,16 +109,26 @@ class PDFGenerator:
         pdf_canvas.setFillColor(colors.HexColor("#184d47"))
         pdf_canvas.setFont("Helvetica-Bold", 9)
         pdf_canvas.drawCentredString(block_x + block_width / 2, block_y + block_height - 0.55 * cm, "Tanda Tangan Mahasiswa")
-        if signature_path and os.path.exists(signature_path):
-            pdf_canvas.drawImage(
-                signature_path,
-                block_x + 0.8 * cm,
-                block_y + 0.55 * cm,
-                width=5.55 * cm,
-                height=2.4 * cm,
-                preserveAspectRatio=True,
-                mask="auto",
-            )
+        if signature_path:
+            try:
+                from app.utils.storage import storage_service
+                from reportlab.lib.utils import ImageReader
+                sig_bytes = storage_service.get_file_content(signature_path)
+                img = ImageReader(BytesIO(sig_bytes))
+                pdf_canvas.drawImage(
+                    img,
+                    block_x + 0.8 * cm,
+                    block_y + 0.55 * cm,
+                    width=5.55 * cm,
+                    height=2.4 * cm,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception as e:
+                logger.error(f"Failed to load signature from storage: {e}")
+                pdf_canvas.setFillColor(colors.HexColor("#9ca3af"))
+                pdf_canvas.setFont("Helvetica-Oblique", 9)
+                pdf_canvas.drawCentredString(block_x + block_width / 2, block_y + 1.65 * cm, "Belum ada tanda tangan")
         else:
             pdf_canvas.setFillColor(colors.HexColor("#9ca3af"))
             pdf_canvas.setFont("Helvetica-Oblique", 9)
@@ -270,11 +283,8 @@ class PDFGenerator:
         signature_path: Optional[str] = None,
     ) -> str:
         try:
-            pdf_dir = os.path.join(settings.UPLOAD_DIR, "pdfs")
-            os.makedirs(pdf_dir, exist_ok=True)
-            filepath = os.path.join(pdf_dir, filename)
-
-            pdf = canvas.Canvas(filepath, pagesize=A4)
+            buffer = BytesIO()
+            pdf = canvas.Canvas(buffer, pagesize=A4)
             width, height = A4
 
 
@@ -309,7 +319,10 @@ class PDFGenerator:
             else:
                 PDFGenerator._draw_signature_block(pdf, width, y, signature_path)
             pdf.save()
-            return filepath
+            
+            from app.utils.storage import storage_service
+            s3_key = storage_service.upload_file(buffer.getvalue(), filename)
+            return s3_key
         except Exception as exc:
             raise InternalError("Gagal menghasilkan PDF template") from exc
 
@@ -324,24 +337,178 @@ class PDFGenerator:
         height: float = 2,
     ) -> str:
         try:
-            c = canvas.Canvas(output_path, pagesize=A4)
+            buffer = BytesIO()
+            c = canvas.Canvas(buffer, pagesize=A4)
             page_width, page_height = A4
             c.setFont("Helvetica", 10)
             c.drawString(2 * cm, page_height - 2 * cm, "[Signed Document]")
-            if os.path.exists(signature_image_path):
-                c.drawImage(
-                    signature_image_path,
-                    x * cm,
-                    y * cm,
-                    width=width * cm,
-                    height=height * cm,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
+            if signature_image_path:
+                try:
+                    from app.utils.storage import storage_service
+                    from reportlab.lib.utils import ImageReader
+                    sig_bytes = storage_service.get_file_content(signature_image_path)
+                    img = ImageReader(BytesIO(sig_bytes))
+                    c.drawImage(
+                        img,
+                        x * cm,
+                        y * cm,
+                        width=width * cm,
+                        height=height * cm,
+                        preserveAspectRatio=True,
+                        mask="auto",
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to attach signature: {e}")
             c.save()
-            return output_path
+            from app.utils.storage import storage_service
+            s3_key = storage_service.upload_file(buffer.getvalue(), "attached_sig.pdf")
+            return s3_key
         except Exception as exc:
             raise InternalError("Gagal menempelkan tanda tangan") from exc
+
+    @staticmethod
+    def overlay_signatures_on_pdf(
+        pdf_path_or_bytes: Union[str, bytes],
+        signatures: List,
+        document_hash: Optional[str] = None,
+    ) -> bytes:
+        from pypdf import PdfReader, PdfWriter  # type: ignore
+        from reportlab.pdfgen import canvas as rl_canvas
+        
+        if isinstance(pdf_path_or_bytes, bytes):
+            reader = PdfReader(BytesIO(pdf_path_or_bytes))
+        else:
+            reader = PdfReader(pdf_path_or_bytes)
+            
+        writer = PdfWriter()
+        for page in reader.pages:
+            writer.add_page(page)
+
+        # Group signatures by page (0-indexed)
+        sigs_by_page = {}
+        if signatures:
+            for sig in signatures:
+                if sig.is_signed() and sig.image_path and sig.pos_x is not None and sig.pos_y is not None:
+                    pg = (sig.page_number or 1) - 1
+                    sigs_by_page.setdefault(pg, []).append(sig)
+
+        # Overlay signed signatures onto each page if present
+        for page_idx, page_sigs in sigs_by_page.items():
+            if page_idx >= len(writer.pages):
+                continue
+            target_page = writer.pages[page_idx]
+            page_width = float(target_page.mediabox.width)
+            page_height = float(target_page.mediabox.height)
+
+            overlay_buf = BytesIO()
+            overlay = rl_canvas.Canvas(overlay_buf, pagesize=(page_width, page_height))
+
+            for sig in page_sigs:
+                if not sig.image_path:
+                    continue
+                
+                # Convert from screen coordinates (top-left origin) to PDF coordinates (bottom-left origin)
+                rendered_width = 700  # approximate rendered width in frontend wizard
+                scale = page_width / rendered_width
+
+                box_x = sig.pos_x * scale
+                box_y = page_height - (sig.pos_y * scale) - (sig.pos_height * scale)
+                box_w = sig.pos_width * scale
+                box_h = sig.pos_height * scale
+
+                pdf_w = box_w * 0.95
+                pdf_h = box_h * 0.75
+                pdf_x = box_x + (box_w - pdf_w) / 2
+                pdf_y = box_y + (box_h - pdf_h) / 2
+
+                try:
+                    # 1. Background & Border
+                    overlay.setFillColorRGB(1, 1, 1, 0.8)
+                    overlay.rect(pdf_x, pdf_y, pdf_w, pdf_h, fill=1, stroke=0)
+                    
+                    overlay.setStrokeColorRGB(0.2, 0.2, 0.2)
+                    overlay.setLineWidth(0.7)
+                    overlay.rect(pdf_x, pdf_y, pdf_w, pdf_h, fill=0, stroke=1)
+
+                    # 2. QR Code
+                    try:
+                        from app.utils.storage import storage_service
+                        storage_service.get_file_content(sig_qr_filename)
+                    except FileNotFoundError:
+                        url = f"/verify/{document_hash}" if document_hash else f"/verify-sig/{sig.signature_hash}"
+                        from app.utils.qr_generator import QRCodeGenerator
+                        qr_path = QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
+                        with open(qr_path, "rb") as f:
+                            storage_service.upload_file(f.read(), sig_qr_filename)
+                        # Remove temp file
+                        try:
+                            os.remove(qr_path)
+                        except:
+                            pass
+
+                    qr_padding = 4 * scale
+                    qr_size = pdf_h - (qr_padding * 2)
+                    qr_x = pdf_x + qr_padding
+                    qr_y = pdf_y + qr_padding
+
+                    try:
+                        from app.utils.storage import storage_service
+                        from reportlab.lib.utils import ImageReader
+                        qr_bytes = storage_service.get_file_content(sig_qr_filename)
+                        qr_img = ImageReader(BytesIO(qr_bytes))
+                        overlay.drawImage(
+                            qr_img, qr_x, qr_y,
+                            width=qr_size, height=qr_size,
+                            preserveAspectRatio=True, mask="auto"
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to draw QR code from storage: {e}")
+
+                    # 3. Text label
+                    text_x = qr_x + qr_size + qr_padding
+                    text_y = pdf_y + pdf_h - (8 * scale)
+
+                    overlay.setFillColorRGB(0.2, 0.2, 0.2)
+                    overlay.setFont("Helvetica", 3.8 * scale)
+                    overlay.drawString(text_x, text_y, "Ditandatangani secara elektronik oleh:")
+
+                    overlay.setFont("Helvetica-Bold", 4.2 * scale)
+                    owner_name = (sig.owner_name or "Sistem Agridesk")[:25]
+                    overlay.drawString(text_x, text_y - (5.5 * scale), owner_name)
+
+                    # 4. Signature graphic
+                    sig_img_h = pdf_h - (18 * scale)
+                    sig_img_w = pdf_w - qr_size - (3 * qr_padding)
+                    sig_img_y = pdf_y + (4 * scale)
+                    try:
+                        from app.utils.storage import storage_service
+                        from reportlab.lib.utils import ImageReader
+                        sig_bytes = storage_service.get_file_content(sig.image_path)
+                        img = ImageReader(BytesIO(sig_bytes))
+                        overlay.drawImage(
+                            img,
+                            text_x, sig_img_y,
+                            width=sig_img_w, height=sig_img_h,
+                            preserveAspectRatio=True, mask="auto"
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to draw signature image from storage: {e}")
+
+                    # 5. Domain branding
+                    overlay.setFont("Helvetica", 3.5 * scale)
+                    overlay.drawRightString(pdf_x + pdf_w - (4 * scale), pdf_y + (3 * scale), "agridesk.ipb.ac.id")
+                except Exception as e:
+                    logger.error(f"Failed to draw signature overlay for owner_id {sig.owner_id}: {e}", exc_info=True)
+
+            overlay.save()
+            overlay_buf.seek(0)
+            overlay_pdf = PdfReader(overlay_buf)
+            if overlay_pdf.pages:
+                target_page.merge_page(overlay_pdf.pages[0])
+
+        output_buf = BytesIO()
+        writer.write(output_buf)
+        return output_buf.getvalue()
 
     @staticmethod
     def generate_final_pdf(
@@ -353,135 +520,51 @@ class PDFGenerator:
         document_hash: Optional[str] = None,
     ) -> str:
         try:
-            pdf_dir = os.path.join(settings.UPLOAD_DIR, "pdfs", "final")
-            os.makedirs(pdf_dir, exist_ok=True)
-            output_path = os.path.join(pdf_dir, output_filename)
+            from app.utils.storage import storage_service
+            
+            try:
+                source_pdf_bytes = storage_service.get_file_content(pdf_path)
+            except FileNotFoundError:
+                source_pdf_bytes = None
 
-            if not pdf_path or not os.path.exists(pdf_path):
-                c = canvas.Canvas(output_path, pagesize=A4)
+            if not source_pdf_bytes:
+                buffer = BytesIO()
+                c = canvas.Canvas(buffer, pagesize=A4)
                 page_width, page_height = A4
                 c.setFont("Helvetica", 10)
                 c.drawString(2 * cm, page_height - 2 * cm, "[Final Approved Document]")
-                if qr_path and os.path.exists(qr_path):
-                    c.drawImage(
-                        qr_path,
-                        page_width - 6 * cm,
-                        2 * cm,
-                        width=4 * cm,
-                        height=4 * cm,
-                        preserveAspectRatio=True,
-                        mask="auto",
-                    )
+                if qr_path:
+                    try:
+                        from reportlab.lib.utils import ImageReader
+                        qr_bytes = storage_service.get_file_content(qr_path)
+                        qr_img = ImageReader(BytesIO(qr_bytes))
+                        c.drawImage(
+                            qr_img,
+                            page_width - 6 * cm,
+                            2 * cm,
+                            width=4 * cm,
+                            height=4 * cm,
+                            preserveAspectRatio=True,
+                            mask="auto",
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to draw QR code: {e}")
                 c.save()
-                return output_path
+                return storage_service.upload_file(buffer.getvalue(), output_filename)
 
-            from pypdf import PdfReader, PdfWriter
-
-            reader = PdfReader(pdf_path)
+            # Call our newly extracted method to overlay the signatures
+            overlaid_pdf_bytes = PDFGenerator.overlay_signatures_on_pdf(
+                pdf_path_or_bytes=source_pdf_bytes,
+                signatures=signatures,
+                document_hash=document_hash
+            )
+            
+            # Read back using PdfReader so we can continue with the master QR overlay on the last page!
+            from pypdf import PdfReader, PdfWriter  # type: ignore
+            reader = PdfReader(BytesIO(overlaid_pdf_bytes))
             writer = PdfWriter()
             for page in reader.pages:
                 writer.add_page(page)
-
-            # Group signatures by page (0-indexed)
-            sigs_by_page = {}
-            if signatures:
-                for sig in signatures:
-                    if sig.is_signed() and sig.image_path and sig.pos_x is not None and sig.pos_y is not None:
-                        pg = (sig.page_number or 1) - 1
-                        sigs_by_page.setdefault(pg, []).append(sig)
-
-            # Overlay signed signatures onto each page if present
-            for page_idx, page_sigs in sigs_by_page.items():
-                if page_idx >= len(writer.pages):
-                    continue
-                target_page = writer.pages[page_idx]
-                page_width = float(target_page.mediabox.width)
-                page_height = float(target_page.mediabox.height)
-
-                overlay_buf = BytesIO()
-                overlay = canvas.Canvas(overlay_buf, pagesize=(page_width, page_height))
-
-                for sig in page_sigs:
-                    if not sig.image_path or not os.path.exists(sig.image_path):
-                        continue
-                    
-                    # Convert from screen coordinates (top-left origin) to PDF coordinates (bottom-left origin)
-                    rendered_width = 700  # approximate rendered width in frontend wizard
-                    scale = page_width / rendered_width
-
-                    box_x = sig.pos_x * scale
-                    box_y = page_height - (sig.pos_y * scale) - (sig.pos_height * scale)
-                    box_w = sig.pos_width * scale
-                    box_h = sig.pos_height * scale
-
-                    pdf_w = box_w * 0.95
-                    pdf_h = box_h * 0.75
-                    pdf_x = box_x + (box_w - pdf_w) / 2
-                    pdf_y = box_y + (box_h - pdf_h) / 2
-
-                    try:
-                        # 1. Background & Border
-                        overlay.setFillColorRGB(1, 1, 1, 0.8)
-                        overlay.rect(pdf_x, pdf_y, pdf_w, pdf_h, fill=1, stroke=0)
-                        
-                        overlay.setStrokeColorRGB(0.2, 0.2, 0.2)
-                        overlay.setLineWidth(0.7)
-                        overlay.rect(pdf_x, pdf_y, pdf_w, pdf_h, fill=0, stroke=1)
-
-                        # 2. QR Code
-                        sig_qr_filename = f"sig_qr_{sig.id}.png"
-                        sig_qr_path = os.path.join(settings.UPLOAD_DIR, "qr_codes", sig_qr_filename)
-                        if not os.path.exists(sig_qr_path):
-                            url = f"/verify/{document_hash}" if document_hash else f"/verify-sig/{sig.signature_hash}"
-                            from app.utils.qr_generator import QRCodeGenerator
-                            QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
-
-                        qr_padding = 4 * scale
-                        qr_size = pdf_h - (qr_padding * 2)
-                        qr_x = pdf_x + qr_padding
-                        qr_y = pdf_y + qr_padding
-
-                        if os.path.exists(sig_qr_path):
-                            overlay.drawImage(
-                                sig_qr_path, qr_x, qr_y,
-                                width=qr_size, height=qr_size,
-                                preserveAspectRatio=True, mask="auto"
-                            )
-
-                        # 3. Text label
-                        text_x = qr_x + qr_size + qr_padding
-                        text_y = pdf_y + pdf_h - (8 * scale)
-
-                        overlay.setFillColorRGB(0.2, 0.2, 0.2)
-                        overlay.setFont("Helvetica", 3.8 * scale)
-                        overlay.drawString(text_x, text_y, "Ditandatangani secara elektronik oleh:")
-
-                        overlay.setFont("Helvetica-Bold", 4.2 * scale)
-                        owner_name = (sig.owner_name or "Sistem Agridesk")[:25]
-                        overlay.drawString(text_x, text_y - (5.5 * scale), owner_name)
-
-                        # 4. Signature graphic
-                        sig_img_h = pdf_h - (18 * scale)
-                        sig_img_w = pdf_w - qr_size - (3 * qr_padding)
-                        sig_img_y = pdf_y + (4 * scale)
-                        overlay.drawImage(
-                            sig.image_path,
-                            text_x, sig_img_y,
-                            width=sig_img_w, height=sig_img_h,
-                            preserveAspectRatio=True, mask="auto"
-                        )
-
-                        # 5. Domain branding
-                        overlay.setFont("Helvetica", 3.5 * scale)
-                        overlay.drawRightString(pdf_x + pdf_w - (4 * scale), pdf_y + (3 * scale), "agridesk.ipb.ac.id")
-                    except Exception:
-                        pass
-
-                overlay.save()
-                overlay_buf.seek(0)
-                overlay_pdf = PdfReader(overlay_buf)
-                if overlay_pdf.pages:
-                    target_page.merge_page(overlay_pdf.pages[0])
 
             # Now overlay the document master QR & SHA256 Hash onto the last page as final approval seal
             last_page = writer.pages[-1]
@@ -494,18 +577,24 @@ class PDFGenerator:
             footer_margin = 0.6 * cm
             qr_size = 2.2 * cm
 
-            if qr_path and os.path.exists(qr_path):
+            if qr_path:
                 qr_x = page_width - footer_margin - qr_size
                 qr_y = footer_margin
-                overlay.drawImage(
-                    qr_path,
-                    qr_x,
-                    qr_y,
-                    width=qr_size,
-                    height=qr_size,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
+                try:
+                    from reportlab.lib.utils import ImageReader
+                    qr_bytes = storage_service.get_file_content(qr_path)
+                    qr_img = ImageReader(BytesIO(qr_bytes))
+                    overlay.drawImage(
+                        qr_img,
+                        qr_x,
+                        qr_y,
+                        width=qr_size,
+                        height=qr_size,
+                        preserveAspectRatio=True,
+                        mask="auto",
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to draw master QR: {e}")
 
             if document_hash:
                 overlay.setFillColor(colors.HexColor("#6b7280"))
@@ -520,9 +609,9 @@ class PDFGenerator:
             overlay_pdf = PdfReader(overlay_bytes)
             last_page.merge_page(overlay_pdf.pages[0])
 
-            with open(output_path, "wb") as f:
-                writer.write(f)
+            output_pdf_buffer = BytesIO()
+            writer.write(output_pdf_buffer)
 
-            return output_path
+            return storage_service.upload_file(output_pdf_buffer.getvalue(), output_filename)
         except Exception as exc:
             raise InternalError("Gagal menghasilkan PDF final") from exc

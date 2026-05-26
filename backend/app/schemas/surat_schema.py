@@ -52,3 +52,10 @@ class SuratResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedSuratResponse(BaseModel):
+    items: List[SuratResponse]
+    total: int
+    page: int
+    size: int

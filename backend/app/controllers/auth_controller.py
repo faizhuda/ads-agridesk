@@ -1,18 +1,21 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
+from app.utils.limiter import limiter
 
 from app.database import get_db
 from app.domain.enums import UserRole
 from app.domain.user import User
 from app.schemas.user_schema import (
     LecturerSearchResponse,
-    UserRegisterRequest,
-    UserLoginRequest,
     TokenResponse,
+    UserLoginRequest,
+    UserRegisterRequest,
     UserResponse,
     UserSearchResponse,
+    RefreshRequest,
+    RefreshTokenResponse,
 )
 from app.services.auth_service import AuthService
 from app.utils.dependencies import get_current_user, require_role
@@ -21,7 +24,8 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
-def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(req: Request, request: UserRegisterRequest, db: Session = Depends(get_db)):
     service = AuthService(db)
     user = service.register(
         name=request.name,
@@ -35,9 +39,16 @@ def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(request: UserLoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(req: Request, request: UserLoginRequest, db: Session = Depends(get_db)):
     service = AuthService(db)
     return service.login(email=request.email, password=request.password)
+
+
+@router.post("/refresh", response_model=RefreshTokenResponse)
+def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
+    service = AuthService(db)
+    return service.refresh(request.refresh_token)
 
 
 @router.get("/me", response_model=UserResponse)

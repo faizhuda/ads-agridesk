@@ -65,3 +65,16 @@ class AuditLogRepository:
             .all()
         )
         return [self._to_domain(m) for m in models]
+
+    def get_all(self, skip: int = 0, limit: int = 20) -> List[AuditLog]:
+        models = (
+            self.db.query(AuditLogModel)
+            .order_by(AuditLogModel.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        return [self._to_domain(m) for m in models]
+
+    def count_all(self) -> int:
+        return self.db.query(AuditLogModel).count()

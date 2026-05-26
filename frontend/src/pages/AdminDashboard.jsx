@@ -32,7 +32,7 @@ export default function AdminDashboard() {
 
   const load = () => {
     api.get('/api/surat/pending')
-      .then((res) => setPending(res.data))
+      .then((res) => setPending(res.data.items || res.data))
       .catch(err => setError(getErrorMessage(err, 'Gagal memuat antrean pending')))
       .finally(() => setLoading(false));
   };
@@ -85,9 +85,14 @@ export default function AdminDashboard() {
               Surat-surat di bawah ini telah ditandatangani dan menunggu pengesahan resmi (penerbitan nomor surat dan stempel digital).
             </p>
           </div>
-          <Link to="/surat/all" className="shrink-0 px-6 py-3 border border-sepia-200 text-primary hover:border-primary transition-colors text-sm font-medium rounded-sm bg-ivory">
-            Lihat Arsip Lengkap
-          </Link>
+          <div className="flex shrink-0 gap-3">
+            <Link to="/admin/audit-logs" className="px-6 py-3 border border-sepia-200 text-primary hover:bg-sepia-200 transition-colors text-sm font-medium rounded-sm bg-white">
+              Lihat Audit Logs
+            </Link>
+            <Link to="/admin/surat" className="px-6 py-3 border border-sepia-200 text-primary hover:border-primary transition-colors text-sm font-medium rounded-sm bg-ivory">
+              Lihat Arsip Lengkap
+            </Link>
+          </div>
         </div>
       </div>
 

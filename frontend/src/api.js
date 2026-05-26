@@ -14,12 +14,45 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
+    const originalRequest = err.config;
+
+    if (err.response?.status === 401 && !originalRequest._retry && originalRequest.url !== '/api/auth/refresh') {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) throw new Error('No refresh token');
+
+        // Use axios directly to avoid loop
+        const res = await axios.post(`${api.defaults.baseURL}/api/auth/refresh`, {
+          refresh_token: refreshToken
+        });
+
+        const newToken = res.data.access_token;
+        const newRefresh = res.data.refresh_token;
+
+        localStorage.setItem('token', newToken);
+        localStorage.setItem('refreshToken', newRefresh);
+
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshErr) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return Promise.reject(refreshErr);
+      }
+    }
+
     if (err.response?.status === 401) {
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+
     return Promise.reject(err);
   }
 );

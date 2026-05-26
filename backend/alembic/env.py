@@ -17,7 +17,7 @@ from app.models.user import UserModel  # noqa: F401
 from app.models.surat import SuratModel  # noqa: F401
 from app.models.signature import SignatureModel  # noqa: F401
 from app.models.audit_log import AuditLogModel  # noqa: F401
-from app.models.letter_template import LetterTemplateModel  # noqa: F401
+from app.models.surat_template import SuratTemplateModel  # noqa: F401
 
 config = context.config
 

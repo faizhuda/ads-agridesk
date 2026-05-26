@@ -80,33 +80,24 @@ def _safe_filename(prefix: str, ext: str) -> str:
 def save_pdf_upload(file: UploadFile, prefix: str, subdir: str = "external") -> str:
     data = _validate_upload(file, ALLOWED_PDF_EXTENSIONS, ALLOWED_PDF_MIMES, MAX_PDF_SIZE)
     ext = _get_extension(file.filename)
-    safe_subdir = _safe_subdir(subdir)
-    upload_dir = os.path.join(settings.UPLOAD_DIR, safe_subdir)
-    os.makedirs(upload_dir, exist_ok=True)
     filename = _safe_filename(prefix, ext)
-    filepath = os.path.join(upload_dir, filename)
+    
     try:
-        with open(filepath, "wb") as f:
-            f.write(data)
-    except OSError as exc:
-        if os.path.exists(filepath):
-            os.remove(filepath)
-        raise InternalError("Gagal menyimpan file upload") from exc
-    return filepath
+        from app.utils.storage import storage_service
+        s3_key = storage_service.upload_file(data, filename)
+        return s3_key
+    except Exception as exc:
+        raise InternalError("Gagal menyimpan file upload ke Storage") from exc
 
 
 def save_signature_upload(file: UploadFile, prefix: str) -> str:
     data = _validate_upload(file, ALLOWED_IMAGE_EXTENSIONS, ALLOWED_IMAGE_MIMES, MAX_IMAGE_SIZE)
     ext = _get_extension(file.filename)
-    upload_dir = os.path.join(settings.UPLOAD_DIR, "signatures")
-    os.makedirs(upload_dir, exist_ok=True)
     filename = _safe_filename(prefix, ext)
-    filepath = os.path.join(upload_dir, filename)
+    
     try:
-        with open(filepath, "wb") as f:
-            f.write(data)
-    except OSError as exc:
-        if os.path.exists(filepath):
-            os.remove(filepath)
-        raise InternalError("Gagal menyimpan file upload") from exc
-    return filepath
+        from app.utils.storage import storage_service
+        s3_key = storage_service.upload_file(data, filename)
+        return s3_key
+    except Exception as exc:
+        raise InternalError("Gagal menyimpan file upload ke Storage") from exc

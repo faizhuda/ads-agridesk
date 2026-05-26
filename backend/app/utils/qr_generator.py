@@ -9,9 +9,7 @@ from app.config import settings
 class QRCodeGenerator:
     @staticmethod
     def generate_qr_code(data: str, filename: str) -> str:
-        qr_dir = os.path.join(settings.UPLOAD_DIR, "qr_codes")
-        os.makedirs(qr_dir, exist_ok=True)
-
+        import qrcode
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -20,8 +18,12 @@ class QRCodeGenerator:
         )
         qr.add_data(data)
         qr.make(fit=True)
-
         img: Image.Image = qr.make_image(fill_color="black", back_color="white")
-        filepath = os.path.join(qr_dir, filename)
-        img.save(filepath)
-        return filepath
+        from io import BytesIO
+        from app.utils.storage import storage_service
+        
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        
+        s3_key = storage_service.upload_file(buffer.getvalue(), filename)
+        return s3_key

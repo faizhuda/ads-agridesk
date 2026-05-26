@@ -12,6 +12,7 @@ import DosenDashboard from './pages/DosenDashboard';
 import DosenAllSuratPage from './pages/DosenAllSuratPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AllSuratPage from './pages/AllSuratPage';
+import AuditLogPage from './pages/AuditLogPage';
 import CreateSuratPage from './pages/CreateSuratPage';
 import SuratDetailPage from './pages/SuratDetailPage';
 import VerifyPage from './pages/VerifyPage';
@@ -58,8 +59,11 @@ export default function App() {
             <Route path="/signature/me" element={
               <ProtectedRoute><SignatureProfilePage /></ProtectedRoute>
             } />
-            <Route path="/surat/all" element={
+            <Route path="/admin/surat" element={
               <ProtectedRoute roles={['ADMIN']}><AllSuratPage /></ProtectedRoute>
+            } />
+            <Route path="/admin/audit-logs" element={
+              <ProtectedRoute roles={['ADMIN']}><AuditLogPage /></ProtectedRoute>
             } />
             <Route path="/surat/:id" element={
               <ProtectedRoute><SuratDetailPage /></ProtectedRoute>

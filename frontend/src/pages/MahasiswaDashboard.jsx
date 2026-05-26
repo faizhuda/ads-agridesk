@@ -14,7 +14,7 @@ import {
 
 export default function MahasiswaDashboard() {
   const fetchLetters = useCallback(() => {
-    return api.get('/api/surat/my').then((res) => res.data);
+    return api.get('/api/surat/my').then((res) => res.data.items || res.data);
   }, []);
 
   const filterLetters = useCallback((items, keywordInput, currentFilters) => {

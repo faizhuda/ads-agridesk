@@ -1,9 +1,15 @@
 import os
+import uuid
+import logging
 from typing import List, Optional, Dict, Any
 
+from pypdf import PdfReader
 from sqlalchemy.orm import Session
 
 from app.domain.enums import SuratStatus, UserRole
+from app.models.surat import SuratModel
+
+logger = logging.getLogger(__name__)
 from app.domain.exceptions import (
     EntityNotFoundError,
     InvalidStateTransitionError,
@@ -65,6 +71,7 @@ class SuratService:
         keperluan: str,
         fields: dict,
         lecturer_ids: Optional[List[int]] = None,
+        background_tasks=None,
     ) -> Surat:
         self._validate_internal_fields(jenis, fields)
 
@@ -78,7 +85,6 @@ class SuratService:
             **fields,
         }
 
-        import uuid
         # Generate PDF from template
         unique_id = uuid.uuid4().hex[:8]
         safe_jenis = jenis.replace(" ", "_")
@@ -105,9 +111,6 @@ class SuratService:
             surat.submit(has_lecturer_signatures=True)
 
         surat = self.surat_repo.create(surat)
-
-        from app.models.surat import SuratModel
-        from app.utils.hash_generator import HashGenerator
 
         # Apply specific logic for Pembatalan Mata Kuliah
         if jenis == "Surat Pembatalan Mata Kuliah":
@@ -208,7 +211,6 @@ class SuratService:
 
         # Update is_sequential flag directly on the DB model
         if is_sequential and surat.id:
-            from app.models.surat import SuratModel
             db_model = self.db.query(SuratModel).filter(SuratModel.id == surat.id).first()
             if db_model:
                 db_model.is_sequential = is_sequential
@@ -268,10 +270,10 @@ class SuratService:
         if not pdf_path or not os.path.exists(pdf_path):
             raise EntityNotFoundError("File PDF tidak ditemukan")
         try:
-            from pypdf import PdfReader
             reader = PdfReader(pdf_path)
             return len(reader.pages)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to read PDF pages for surat_id {surat_id}: {e}", exc_info=True)
             return 1
 
     # ------------------------------------------------------------------
@@ -292,32 +294,50 @@ class SuratService:
         self._log("SURAT_SUBMITTED", mahasiswa_id, UserRole.MAHASISWA.value, surat)
         return surat
 
-    def approve_by_admin(self, surat_id: int, admin_id: int) -> Surat:
+    def approve_by_admin(self, surat_id: int, admin_id: int, background_tasks=None) -> Surat:
         surat = self._get_surat_or_raise(surat_id)
 
-        # Generate artefacts
         document_hash = HashGenerator.generate_document_hash(surat.id, surat.mahasiswa_id)
 
-        verification_url = f"/verify/{document_hash}"
-        qr_filename = f"qr_{surat.id}.png"
-        qr_path = QRCodeGenerator.generate_qr_code(verification_url, qr_filename)
-
-        source_pdf = surat.pdf_path or surat.file_path or ""
-        final_filename = f"final_{surat.id}.pdf"
-        signatures = self.signature_repo.get_by_surat_id(surat.id)
-        final_pdf_path = PDFGenerator.generate_final_pdf(
-            source_pdf, qr_path, final_filename,
-            signatures=signatures,
-            is_external=surat.is_external,
-            document_hash=document_hash,
-        )
-
         # Domain transition — validates state machine
-        surat.approve(document_hash, qr_path, final_pdf_path)
+        surat.approve(document_hash)
         surat = self.surat_repo.update(surat)
 
-        self._log("SURAT_APPROVED", admin_id, UserRole.ADMIN.value, surat)
+        if background_tasks:
+            background_tasks.add_task(self._generate_final_pdf_task, surat.id, document_hash, admin_id)
+        else:
+            self._generate_final_pdf_task(surat.id, document_hash, admin_id)
+
+        # Return immediately, file generation runs in background
         return surat
+
+    def _generate_final_pdf_task(self, surat_id: int, document_hash: str, admin_id: int):
+        from app.database import SessionLocal
+        with SessionLocal() as db:
+            service = SuratService(db)
+            try:
+                surat = service._get_surat_or_raise(surat_id)
+
+                verification_url = f"/verify/{document_hash}"
+                qr_filename = f"qr_{surat.id}.png"
+                qr_path = QRCodeGenerator.generate_qr_code(verification_url, qr_filename)
+
+                source_pdf = surat.pdf_path or surat.file_path or ""
+                final_filename = f"final_{surat.id}.pdf"
+                signatures = service.signature_repo.get_by_surat_id(surat.id)
+                final_pdf_path = PDFGenerator.generate_final_pdf(
+                    source_pdf, qr_path, final_filename,
+                    signatures=signatures,
+                    is_external=surat.is_external,
+                    document_hash=document_hash,
+                )
+
+                surat.qr_path = qr_path
+                surat.pdf_path = final_pdf_path
+                service.surat_repo.update(surat)
+                service._log("SURAT_APPROVED", admin_id, UserRole.ADMIN.value, surat)
+            except Exception as e:
+                logger.error(f"Failed to generate final PDF async for surat {surat_id}: {e}", exc_info=True)
 
     def reject_letter(
         self, surat_id: int, actor_id: int, actor_role: str, reason: str,
@@ -341,8 +361,7 @@ class SuratService:
                 raise UnauthorizedError("Surat ini bukan pending tanda tangan Anda")
 
             # Enforce sequential order for rejection too
-            from app.models.surat import SuratModel as SM
-            surat_model = self.db.query(SM).filter(SM.id == surat_id).first()
+            surat_model = self.db.query(SuratModel).filter(SuratModel.id == surat_id).first()
             if surat_model and surat_model.is_sequential:
                 next_signers = self.signature_repo.get_next_to_sign(surat_id, True)
                 if not any(s.owner_id == actor_id for s in next_signers):
@@ -381,14 +400,14 @@ class SuratService:
         # ADMIN can access all
         return surat
 
-    def get_surat_by_mahasiswa(self, mahasiswa_id: int) -> List[Surat]:
-        return self.surat_repo.get_by_mahasiswa_id(mahasiswa_id)
+    def get_surat_by_mahasiswa(self, mahasiswa_id: int, skip: int = 0, limit: int = 100) -> tuple[List[Surat], int]:
+        return self.surat_repo.get_by_mahasiswa_id(mahasiswa_id, skip, limit)
 
-    def get_pending_admin(self) -> List[Surat]:
-        return self.surat_repo.get_pending_admin()
+    def get_pending_admin(self, skip: int = 0, limit: int = 100) -> tuple[List[Surat], int]:
+        return self.surat_repo.get_pending_admin(skip, limit)
 
-    def get_all_surat(self) -> List[Surat]:
-        return self.surat_repo.get_all()
+    def get_all_surat(self, skip: int = 0, limit: int = 100) -> tuple[List[Surat], int]:
+        return self.surat_repo.get_all(skip, limit)
 
     # ------------------------------------------------------------------
     # Internal helpers

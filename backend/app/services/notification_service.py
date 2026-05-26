@@ -37,7 +37,7 @@ class NotificationService:
 
     def _for_student(self, user_id: int, limit: int) -> List[dict]:
         notifications: list[dict] = []
-        surat_list = self.surat_repo.get_by_mahasiswa_id(user_id)
+        surat_list, _ = self.surat_repo.get_by_mahasiswa_id(user_id, limit=limit)
         surat_list = sorted(
             surat_list,
             key=lambda surat: surat.updated_at or surat.created_at or datetime.min.replace(tzinfo=timezone.utc),
@@ -109,7 +109,7 @@ class NotificationService:
 
     def _for_admin(self, limit: int) -> List[dict]:
         notifications: list[dict] = []
-        pending = self.surat_repo.get_pending_admin()
+        pending, _ = self.surat_repo.get_pending_admin(limit=limit)
         for surat in pending:
             notifications.append({
                 "id": surat.id or len(notifications) + 1,

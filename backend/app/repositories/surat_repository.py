@@ -1,5 +1,5 @@
 import json
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -86,24 +86,30 @@ class SuratRepository:
         model = self.db.query(SuratModel).filter(SuratModel.id == surat_id).first()
         return self._to_domain(model) if model else None
 
-    def get_by_mahasiswa_id(self, mahasiswa_id: int) -> List[Surat]:
-        models = self.db.query(SuratModel).filter(SuratModel.mahasiswa_id == mahasiswa_id).all()
-        return [self._to_domain(m) for m in models]
+    def get_by_mahasiswa_id(self, mahasiswa_id: int, skip: int = 0, limit: int = 100) -> Tuple[List[Surat], int]:
+        query = self.db.query(SuratModel).filter(SuratModel.mahasiswa_id == mahasiswa_id)
+        total = query.count()
+        models = query.offset(skip).limit(limit).all()
+        return [self._to_domain(m) for m in models], total
 
-    def get_by_status(self, status: SuratStatus) -> List[Surat]:
-        models = self.db.query(SuratModel).filter(SuratModel.status == status).all()
-        return [self._to_domain(m) for m in models]
+    def get_by_status(self, status: SuratStatus, skip: int = 0, limit: int = 100) -> Tuple[List[Surat], int]:
+        query = self.db.query(SuratModel).filter(SuratModel.status == status)
+        total = query.count()
+        models = query.offset(skip).limit(limit).all()
+        return [self._to_domain(m) for m in models], total
 
     def get_by_document_hash(self, document_hash: str) -> Optional[Surat]:
         model = self.db.query(SuratModel).filter(SuratModel.document_hash == document_hash).first()
         return self._to_domain(model) if model else None
 
-    def get_pending_admin(self) -> List[Surat]:
-        return self.get_by_status(SuratStatus.MENUNGGU_PROSES_ADMIN)
+    def get_pending_admin(self, skip: int = 0, limit: int = 100) -> Tuple[List[Surat], int]:
+        return self.get_by_status(SuratStatus.MENUNGGU_PROSES_ADMIN, skip, limit)
 
-    def get_all(self) -> List[Surat]:
-        models = self.db.query(SuratModel).all()
-        return [self._to_domain(m) for m in models]
+    def get_all(self, skip: int = 0, limit: int = 100) -> Tuple[List[Surat], int]:
+        query = self.db.query(SuratModel)
+        total = query.count()
+        models = query.offset(skip).limit(limit).all()
+        return [self._to_domain(m) for m in models], total
 
     def update(self, surat: Surat) -> Surat:
         model = self.db.query(SuratModel).filter(SuratModel.id == surat.id).first()

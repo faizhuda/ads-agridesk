@@ -87,12 +87,14 @@ class Surat:
         """All lecturers have signed — move to admin review."""
         self._transition_to(SuratStatus.MENUNGGU_PROSES_ADMIN)
 
-    def approve(self, document_hash: str, qr_path: str, final_pdf_path: str) -> None:
+    def approve(self, document_hash: str, qr_path: Optional[str] = None, final_pdf_path: Optional[str] = None) -> None:
         """Admin approves the letter and attaches final artefacts."""
         self._transition_to(SuratStatus.SELESAI)
         self.document_hash = document_hash
-        self.qr_path = qr_path
-        self.pdf_path = final_pdf_path
+        if qr_path:
+            self.qr_path = qr_path
+        if final_pdf_path:
+            self.pdf_path = final_pdf_path
 
     def reject(self, reason: str) -> None:
         """Reject the letter with a mandatory reason."""

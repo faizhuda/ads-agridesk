@@ -1,6 +1,9 @@
 import os
+import logging
 
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.domain.enums import SuratStatus
 from app.repositories.surat_repository import SuratRepository
@@ -29,8 +32,8 @@ class VerificationService:
             try:
                 from pypdf import PdfReader
                 page_count = len(PdfReader(pdf_path).pages)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Failed to read PDF page count for '{pdf_path}': {e}", exc_info=True)
 
         # Signer details
         signers = []

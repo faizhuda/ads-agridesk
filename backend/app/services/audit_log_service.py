@@ -39,3 +39,8 @@ class AuditLogService:
             ip_address=ip_address,
         )
         return self.audit_repo.create(log)
+
+    def get_logs(self, skip: int = 0, limit: int = 20) -> tuple[list[AuditLog], int]:
+        logs = self.audit_repo.get_all(skip, limit)
+        total = self.audit_repo.count_all()
+        return logs, total

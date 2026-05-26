@@ -1,8 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
-from app.controllers import auth_controller, surat_controller, signature_controller, verification_controller, notification_controller
+from app.controllers import (
+    auth_controller,
+    user_controller,
+    surat_controller,
+    verification_controller,
+    signature_controller,
+    audit_log_controller,
+)
 from app.database import SessionLocal
 from app.utils.template_seed import seed_default_internal_templates
 from app.domain.exceptions import (
@@ -13,12 +22,15 @@ from app.domain.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from app.utils.limiter import limiter
 
 app = FastAPI(
     title="Agridesk API",
     description="Academic Letter Workflow System",
     version="1.0.0",
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS
 app.add_middleware(
@@ -60,9 +72,9 @@ async def agridesk_error_handler(request, exc: AgrideskError):
 # Register routers
 app.include_router(auth_controller.router)
 app.include_router(surat_controller.router)
-app.include_router(signature_controller.router)
 app.include_router(verification_controller.router)
-app.include_router(notification_controller.router)
+app.include_router(signature_controller.router)
+app.include_router(audit_log_controller.router, prefix="/api/audit-logs", tags=["Audit Log"])
 
 
 @app.on_event("startup")
