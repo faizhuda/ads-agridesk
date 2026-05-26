@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { lazy, Suspense } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -15,11 +16,13 @@ import AllSuratPage from './pages/AllSuratPage';
 import AuditLogPage from './pages/AuditLogPage';
 import CreateSuratPage from './pages/CreateSuratPage';
 import SuratDetailPage from './pages/SuratDetailPage';
-import VerifyPage from './pages/VerifyPage';
 import SignatureProfilePage from './pages/SignatureProfilePage';
 import PdfViewerPage from './pages/PdfViewerPage';
 import ExternalUploadWizardPage from './pages/ExternalUploadWizardPage';
 import './index.css';
+
+// Lazy load VerifyPage to isolate framer-motion initialization in its own chunk
+const VerifyPage = lazy(() => import('./pages/VerifyPage'));
 
 export default function App() {
   return (
@@ -32,8 +35,16 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/verify/:hash?" element={<VerifyPage />} />
-            <Route path="/verify-sig/:hash?" element={<VerifyPage />} />
+            <Route path="/verify/:hash?" element={
+              <Suspense fallback={<div className="flex justify-center items-center h-64 text-primary/50 text-sm">Memuat...</div>}>
+                <VerifyPage />
+              </Suspense>
+            } />
+            <Route path="/verify-sig/:hash?" element={
+              <Suspense fallback={<div className="flex justify-center items-center h-64 text-primary/50 text-sm">Memuat...</div>}>
+                <VerifyPage />
+              </Suspense>
+            } />
 
             <Route path="/" element={<HomePage />} />
 

@@ -55,10 +55,8 @@ def create_external_letter(
     current_user: User = Depends(require_role(UserRole.MAHASISWA)),
 ):
     import json
-    # Validate and save uploaded PDF
     file_path = save_pdf_upload(file, prefix=f"ext_{current_user.id}")
 
-    # Parse rich signer configs (new wizard format)
     signer_configs = None
     if signer_configs_json.strip():
         try:
@@ -66,7 +64,6 @@ def create_external_letter(
         except (json.JSONDecodeError, ValueError):
             signer_configs = None
 
-    # Legacy: parse plain lecturer IDs
     lid_list = None
     if not signer_configs and lecturer_ids.strip():
         lid_list = [int(x.strip()) for x in lecturer_ids.split(",") if x.strip()]
@@ -104,17 +101,6 @@ def get_my_letters(
     skip = (page - 1) * size
     items, total = service.get_surat_by_mahasiswa(current_user.id, skip=skip, limit=size)
     return PaginatedSuratResponse(items=items, total=total, page=page, size=size)
-
-
-@router.get("/{surat_id}/page-count")
-def get_surat_page_count(
-    surat_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    service = SuratService(db)
-    count = service.get_page_count(surat_id, current_user.id, current_user.role)
-    return {"page_count": count}
 
 
 @router.get("/templates/internal", response_model=List[InternalTemplateResponse])
@@ -167,6 +153,8 @@ def reject_letter(
 
 
 # --- General ---
+# IMPORTANT: static routes (/all, /public/stats) must come before /{surat_id}
+# to prevent FastAPI from matching them as integer path params.
 
 
 @router.get("/all", response_model=PaginatedSuratResponse)
@@ -182,6 +170,33 @@ def get_all_surat(
     return PaginatedSuratResponse(items=items, total=total, page=page, size=size)
 
 
+@router.get("/public/stats")
+def get_public_stats(db: Session = Depends(get_db)):
+    from app.models.surat import SuratModel
+    from app.models.signature import SignatureModel
+    from sqlalchemy import func
+
+    completed_letters = db.query(SuratModel).filter(SuratModel.status == "SELESAI").all()
+    dokumen_terbit = len(completed_letters)
+
+    tanda_tangan = db.query(func.count(SignatureModel.id)).filter(SignatureModel.signed_at.isnot(None)).scalar() or 0
+
+    avg_hours = 0.0
+    if dokumen_terbit > 0:
+        total_seconds = sum(
+            (letter.updated_at - letter.created_at).total_seconds()
+            for letter in completed_letters
+            if letter.updated_at and letter.created_at
+        )
+        avg_hours = round((total_seconds / dokumen_terbit) / 3600, 1)
+
+    return {
+        "dokumen_terbit": dokumen_terbit,
+        "tanda_tangan": tanda_tangan,
+        "rata_rata_jam": avg_hours,
+    }
+
+
 @router.get("/{surat_id}", response_model=SuratResponse)
 def get_surat_detail(
     surat_id: int,
@@ -190,6 +205,17 @@ def get_surat_detail(
 ):
     service = SuratService(db)
     return service.get_surat_with_access_check(surat_id, current_user.id, current_user.role)
+
+
+@router.get("/{surat_id}/page-count")
+def get_surat_page_count(
+    surat_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = SuratService(db)
+    count = service.get_page_count(surat_id, current_user.id, current_user.role)
+    return {"page_count": count}
 
 
 @router.get("/{surat_id}/pdf")
@@ -204,14 +230,13 @@ def view_surat_pdf(
     file_key = surat.pdf_path or surat.file_path
     if not file_key:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PDF belum tersedia")
-    
+
     try:
         from app.utils.storage import storage_service
         pdf_bytes = storage_service.get_file_content(file_key)
     except FileNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File PDF tidak ditemukan di storage")
 
-    # Get signed signatures to overlay onto the PDF
     from app.repositories.signature_repository import SignatureRepository
     sig_repo = SignatureRepository(db)
     signatures = sig_repo.get_by_surat_id(surat_id)
@@ -231,32 +256,3 @@ def view_surat_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
-
-
-
-
-@router.get("/public/stats")
-def get_public_stats(db: Session = Depends(get_db)):
-    from app.models.surat import SuratModel
-    from app.models.signature import SignatureModel
-    from sqlalchemy import func
-    
-    completed_letters = db.query(SuratModel).filter(SuratModel.status == "SELESAI").all()
-    dokumen_terbit = len(completed_letters)
-    
-    tanda_tangan = db.query(func.count(SignatureModel.id)).filter(SignatureModel.signed_at.isnot(None)).scalar() or 0
-    
-    avg_hours = 0.0
-    if dokumen_terbit > 0:
-        total_seconds = sum(
-            (letter.updated_at - letter.created_at).total_seconds()
-            for letter in completed_letters
-            if letter.updated_at and letter.created_at
-        )
-        avg_hours = round((total_seconds / dokumen_terbit) / 3600, 1)
-    
-    return {
-        "dokumen_terbit": dokumen_terbit,
-        "tanda_tangan": tanda_tangan,
-        "rata_rata_jam": avg_hours
-    }
