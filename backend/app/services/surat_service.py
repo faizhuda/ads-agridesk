@@ -54,9 +54,9 @@ class SuratService:
         return [
             {
                 "id": t.id,
-                "jenis": t.jenis,
-                "title": t.title,
-                "fields": t.fields,
+                "name": t.jenis,
+                "description": t.title,
+                "required_fields": [f.get("name") for f in t.fields if f.get("name")],
             }
             for t in templates
         ]

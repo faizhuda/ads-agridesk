@@ -10,7 +10,18 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
-        // Prevent IDM and CORS issues by proxying through Vite dev server
+      },
+    },
+  },
+  build: {
+    // Prevent Vite from mangling module initialization order,
+    // which causes "Cannot access 'x' before initialization" in framer-motion.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'framer-motion': ['framer-motion'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+        },
       },
     },
   },
