@@ -116,13 +116,41 @@ export default function Navbar() {
             </div>
 
             {/* Login Link */}
-            <div className="flex items-center">
+            <div className="hidden md:flex items-center">
               <NavLink to="/login" className="text-sm font-medium text-primary hover:text-primary/70 transition-colors">
                 Login
               </NavLink>
             </div>
+            
+            {/* Mobile menu button */}
+            <div className="-mr-2 flex md:hidden">
+              <button onClick={() => setIsOpen(!isOpen)} className="inline-flex items-center justify-center p-2 rounded-md text-primary/60 hover:text-primary hover:bg-sepia-200 focus:outline-none">
+                <span className="sr-only">Open main menu</span>
+                {isOpen ? (
+                  <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Public Mobile Menu */}
+        {isOpen && (
+          <div className="md:hidden bg-ivory border-t border-sepia-200">
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+              <NavLink to="/verify" onClick={() => setIsOpen(false)} className="block px-3 py-2 text-primary hover:bg-sepia-200 rounded-md">Verifikasi</NavLink>
+              <div className="mt-4 pt-4 border-t border-sepia-200 px-3">
+                <NavLink to="/login" onClick={() => setIsOpen(false)} className="block text-primary hover:text-primary-dark font-medium">Login</NavLink>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
     );
   }
@@ -262,8 +290,23 @@ export default function Navbar() {
             </button>
           </div>
 
-          {/* Mobile menu button */}
-          <div className="-mr-2 flex md:hidden">
+          {/* Mobile menu button & notifications */}
+          <div className="-mr-2 flex items-center md:hidden gap-2">
+            <button
+              type="button"
+              onClick={() => setIsNotificationOpen((prev) => !prev)}
+              className="relative p-2 text-primary/70 hover:text-primary transition-colors focus:outline-none"
+              aria-label="Notifikasi"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 font-semibold text-center">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
             <button onClick={() => setIsOpen(!isOpen)} className="inline-flex items-center justify-center p-2 rounded-md text-primary/60 hover:text-primary hover:bg-sepia-200 focus:outline-none">
               <span className="sr-only">Open main menu</span>
               {isOpen ? (
@@ -279,6 +322,65 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Notification Panel */}
+      {isNotificationOpen && (
+        <div className="md:hidden absolute top-20 left-0 right-0 bg-white border-b border-sepia-200 shadow-xl overflow-hidden z-50">
+          <div className="px-4 py-3 border-b border-sepia-200 bg-ivory flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-primary">Notifikasi</p>
+            </div>
+            {visibleNotifications.length > 0 && (
+              <button 
+                onClick={handleDismissAll}
+                className="text-[10px] uppercase tracking-wider text-primary/50 hover:text-primary transition-colors font-medium"
+              >
+                Bersihkan
+              </button>
+            )}
+          </div>
+          <div className="max-h-[60vh] overflow-auto">
+            {notificationLoading ? (
+              <div className="px-4 py-6 text-sm text-primary/50 italic">Memuat notifikasi...</div>
+            ) : visibleNotifications.length === 0 ? (
+              <div className="px-4 py-6 text-sm text-primary/50 italic">Belum ada notifikasi baru.</div>
+            ) : (
+              visibleNotifications.map((item) => (
+                <div key={item.id} className="relative group border-b border-sepia-200/70 last:border-0 hover:bg-ivory transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsNotificationOpen(false);
+                      if (item.link) navigate(item.link);
+                    }}
+                    className="w-full text-left px-4 py-3 pr-10"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 w-2.5 h-2.5 rounded-full bg-primary/40 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-primary">{item.title}</p>
+                        <p className="text-xs text-primary/70 mt-1 leading-relaxed">{item.message}</p>
+                        <p className="text-[10px] tracking-wide uppercase text-primary/40 mt-2">
+                          {item.source_event}{item.created_at ? ` · ${formatTime(item.created_at)}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => handleDismiss(e, item.id)}
+                    className="absolute right-3 top-3 p-1.5 text-primary/30 hover:text-red-500 opacity-100 transition-all rounded-sm"
+                    aria-label="Tutup notifikasi"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Mobile Menu */}
       {isOpen && (

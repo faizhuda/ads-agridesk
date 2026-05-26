@@ -1,86 +1,58 @@
 import os
 import uuid
-import boto3
-from botocore.exceptions import ClientError
+from app.config import settings
+
 
 class StorageService:
+    """
+    Local-filesystem storage service.
+
+    Files are stored under UPLOAD_DIR (default: "uploads/").
+    USE_S3 is intentionally kept as a no-op flag so that the old
+    environment variable doesn't cause a startup error, but we no
+    longer connect to MinIO / S3 at all — the mini-pc stores
+    everything on /disk/data-01/tristan/data-agd/uploads via a
+    Docker bind-mount into /app/uploads inside the container.
+    """
+
     def __init__(self):
-        # We default to False if we don't have the MINIO configuration set 
-        # yet in the .env, but for now we can enable it by default.
-        self.use_s3 = os.getenv("USE_S3", "True").lower() in ("true", "1", "yes")
-        
-        self.bucket_name = os.getenv("S3_BUCKET_NAME", "agridesk-uploads")
-        # In a real environment, this should point to actual AWS S3 URL
-        # For local development, it points to the MinIO container
-        self.endpoint_url = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
-        self.aws_access_key = os.getenv("S3_ACCESS_KEY", "minioadmin")
-        self.aws_secret_key = os.getenv("S3_SECRET_KEY", "minioadmin")
-        self.region = os.getenv("S3_REGION", "us-east-1")
-        
-        if self.use_s3:
-            self.s3_client = boto3.client(
-                's3',
-                endpoint_url=self.endpoint_url,
-                aws_access_key_id=self.aws_access_key,
-                aws_secret_access_key=self.aws_secret_key,
-                region_name=self.region,
-            )
-        else:
-            self.local_upload_dir = "uploads"
-            os.makedirs(self.local_upload_dir, exist_ok=True)
+        self.upload_dir = settings.UPLOAD_DIR or "uploads"
+        os.makedirs(self.upload_dir, exist_ok=True)
 
     def upload_file(self, file_content: bytes, original_filename: str) -> str:
-        """Uploads a file to S3 (or local fallback) and returns the key/path."""
-        ext = original_filename.split('.')[-1] if '.' in original_filename else 'pdf'
+        """Save *file_content* to the upload directory and return the relative path."""
+        ext = original_filename.split(".")[-1] if "." in original_filename else "bin"
         filename = f"{uuid.uuid4().hex}.{ext}"
-
-        if self.use_s3:
-            try:
-                content_type = "application/pdf"
-                if ext.lower() in ["png", "jpg", "jpeg"]:
-                    content_type = f"image/{ext.lower().replace('jpg', 'jpeg')}"
-
-                self.s3_client.put_object(
-                    Bucket=self.bucket_name,
-                    Key=filename,
-                    Body=file_content,
-                    ContentType=content_type,
-                )
-                return filename
-            except ClientError as e:
-                print(f"S3 Upload failed: {e}")
-                # Fallback
-                return self._upload_local(file_content, filename)
-            except Exception as e:
-                print(f"Unknown upload exception: {e}")
-                return self._upload_local(file_content, filename)
-        else:
-            return self._upload_local(file_content, filename)
-            
-    def _upload_local(self, file_content: bytes, filename: str) -> str:
-        self.local_upload_dir = "uploads"
-        os.makedirs(self.local_upload_dir, exist_ok=True)
-        filepath = os.path.join(self.local_upload_dir, filename)
+        filepath = os.path.join(self.upload_dir, filename)
         with open(filepath, "wb") as f:
             f.write(file_content)
         return filepath
-        
+
     def get_file_content(self, path_or_key: str) -> bytes:
-        """Retrieves file content from S3 or local."""
-        # If it has a slash and not from uploads, check if it's a legacy local file
-        if self.use_s3 and not path_or_key.startswith("uploads/") and "/" not in path_or_key:
-            try:
-                response = self.s3_client.get_object(Bucket=self.bucket_name, Key=path_or_key)
-                return response['Body'].read()
-            except ClientError as e:
-                print(f"S3 Download failed: {e}")
-                
-        # Local fallback
-        filepath = path_or_key if path_or_key.startswith("uploads") else os.path.join("uploads", path_or_key)
+        """Return the raw bytes for the given file path."""
+        # Normalise: strip leading slashes so we don't leave the uploads dir.
+        if path_or_key.startswith("/"):
+            path_or_key = path_or_key.lstrip("/")
+
+        # Accept both "uploads/xxx.pdf" and bare "xxx.pdf"
+        if os.path.isabs(path_or_key) or path_or_key.startswith(self.upload_dir):
+            filepath = path_or_key
+        else:
+            filepath = os.path.join(self.upload_dir, path_or_key)
+
         if os.path.exists(filepath):
             with open(filepath, "rb") as f:
                 return f.read()
-        
+
         raise FileNotFoundError(f"File not found in storage: {path_or_key}")
+
+    def file_exists(self, path_or_key: str) -> bool:
+        """Return True if the file exists on disk."""
+        try:
+            self.get_file_content(path_or_key)
+            return True
+        except FileNotFoundError:
+            return False
+
 
 storage_service = StorageService()

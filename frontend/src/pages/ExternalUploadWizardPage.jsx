@@ -259,29 +259,52 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
   const fileUrlRef = useRef(null);
   let fieldCounter = useRef(0);
 
-  // Mouse move/up for drag & resize
+  // Mouse/Touch move/up for drag & resize
   useEffect(() => {
     if (!dragging && !resizing) return;
     const handleMouseMove = (e) => {
-      if (resizing) {
-        const dx = e.clientX - resizing.startX;
-        const dy = e.clientY - resizing.startY;
-        setFields((prev) => prev.map((f) =>
-          f.field_id === resizing.fieldId ? { ...f, pos_width: Math.max(100, resizing.startW + dx), pos_height: Math.max(40, resizing.startH + dy) } : f
-        ));
-      } else if (dragging) {
-        const dx = e.clientX - dragging.startX;
-        const dy = e.clientY - dragging.startY;
-        setFields((prev) => prev.map((f) =>
-          f.field_id === dragging.fieldId ? { ...f, pos_x: dragging.startPosX + dx, pos_y: dragging.startPosY + dy } : f
-        ));
+      // Handle both MouseEvent and TouchEvent
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      if (dragging) {
+        setFields((prev) => prev.map((f) => {
+          if (f.field_id !== dragging.fieldId) return f;
+          const dx = clientX - dragging.startX;
+          const dy = clientY - dragging.startY;
+          return {
+            ...f,
+            pos_x: Math.max(0, Math.min(pdfWidth - f.pos_width, dragging.startPosX + dx)),
+            pos_y: Math.max(0, dragging.startPosY + dy),
+          };
+        }));
+      } else if (resizing) {
+        setFields((prev) => prev.map((f) => {
+          if (f.field_id !== resizing.fieldId) return f;
+          const dx = clientX - resizing.startX;
+          const dy = clientY - resizing.startY;
+          return {
+            ...f,
+            pos_width: Math.max(50, Math.min(pdfWidth - f.pos_x, resizing.startW + dx)),
+            pos_height: Math.max(30, resizing.startH + dy),
+          };
+        }));
       }
     };
     const handleMouseUp = () => { setDragging(null); setResizing(null); };
-    window.addEventListener('mousemove', handleMouseMove);
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: false });
+    window.addEventListener('touchmove', handleMouseMove, { passive: false });
     window.addEventListener('mouseup', handleMouseUp);
-    return () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('mouseup', handleMouseUp); };
-  }, [dragging, resizing]);
+    window.addEventListener('touchend', handleMouseUp);
+    
+    return () => { 
+      window.removeEventListener('mousemove', handleMouseMove); 
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp); 
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [dragging, resizing, pdfWidth]);
 
   useEffect(() => {
     if (fileUrlRef.current) { URL.revokeObjectURL(fileUrlRef.current); fileUrlRef.current = null; }
@@ -313,14 +336,18 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
 
   const startDrag = (e, fieldId) => {
     e.stopPropagation();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const f = fields.find((x) => x.field_id === fieldId);
-    setDragging({ fieldId, startX: e.clientX, startY: e.clientY, startPosX: f.pos_x, startPosY: f.pos_y });
+    setDragging({ fieldId, startX: clientX, startY: clientY, startPosX: f.pos_x, startPosY: f.pos_y });
   };
 
   const startResize = (e, fieldId) => {
     e.stopPropagation();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const f = fields.find((x) => x.field_id === fieldId);
-    setResizing({ fieldId, startX: e.clientX, startY: e.clientY, startW: f.pos_width, startH: f.pos_height });
+    setResizing({ fieldId, startX: clientX, startY: clientY, startW: f.pos_width, startH: f.pos_height });
   };
 
   // Every signer must have at least one field
@@ -364,18 +391,20 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
             )}
             {/* Signature fields overlay */}
             {fields.filter((f) => f.page_number === currentPage).map((f) => (
-              <div key={f.field_id} className="absolute flex items-start justify-between px-2 py-1 rounded border-2 text-[10px] font-medium select-none group cursor-move hover:shadow-md transition-shadow"
+              <div key={f.field_id} className="absolute flex items-start justify-between px-2 py-1 rounded border-2 text-[10px] font-medium select-none group cursor-move hover:shadow-md transition-shadow touch-none"
                 style={{ left: f.pos_x, top: f.pos_y, width: f.pos_width, height: f.pos_height, borderColor: f.color.border, backgroundColor: f.color.bg, color: f.color.text }}
                 onMouseDown={(e) => startDrag(e, f.field_id)}
+                onTouchStart={(e) => startDrag(e, f.field_id)}
               >
                 <div className="flex flex-col truncate w-full h-full justify-center">
                   <span className="truncate">{f.name}</span>
                 </div>
                 <button type="button" onClick={(e) => { e.stopPropagation(); removeField(f.field_id); }} className="absolute top-1 right-1 shrink-0 hover:text-red-600 bg-white/50 rounded-sm p-0.5"><X size={12} /></button>
                 <div
-                  className="absolute bottom-0 right-0 w-3 h-3 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-50 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   style={{ backgroundColor: f.color.border, clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}
                   onMouseDown={(e) => startResize(e, f.field_id)}
+                  onTouchStart={(e) => startResize(e, f.field_id)}
                 />
               </div>
             ))}

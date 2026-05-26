@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     UPLOAD_DIR: str = "uploads"
 
+    # Public URL for generating QR codes that are scannable from mobile
+    BASE_URL: str = "https://drive.hq.idenx.id"
+
+    # Storage — defaults to local filesystem (False = no S3/MinIO)
+    USE_S3: bool = False
+
     model_config = {"env_file": str(BASE_DIR / ".env"), "extra": "ignore"}
 
 

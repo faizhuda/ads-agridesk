@@ -1,4 +1,3 @@
-import os
 import logging
 
 from sqlalchemy.orm import Session
@@ -8,6 +7,7 @@ logger = logging.getLogger(__name__)
 from app.domain.enums import SuratStatus
 from app.repositories.surat_repository import SuratRepository
 from app.repositories.signature_repository import SignatureRepository
+from app.utils.storage import storage_service
 
 
 class VerificationService:
@@ -25,13 +25,15 @@ class VerificationService:
         year = surat.created_at.year if surat.created_at else "----"
         code = f"SR/{year}/{str(surat.id).zfill(4)}"
 
-        # Page count from PDF
+        # Page count from PDF via storage service
         page_count = 1
         pdf_path = surat.pdf_path or surat.file_path
-        if pdf_path and os.path.exists(pdf_path):
+        if pdf_path:
             try:
                 from pypdf import PdfReader
-                page_count = len(PdfReader(pdf_path).pages)
+                from io import BytesIO
+                pdf_bytes = storage_service.get_file_content(pdf_path)
+                page_count = len(PdfReader(BytesIO(pdf_bytes)).pages)
             except Exception as e:
                 logger.error(f"Failed to read PDF page count for '{pdf_path}': {e}", exc_info=True)
 
@@ -116,28 +118,35 @@ class VerificationService:
 
     def download_pdf(self, hash_value: str):
         from fastapi import HTTPException
-        from fastapi.responses import FileResponse
-        
+        from fastapi.responses import StreamingResponse
+        from io import BytesIO
+
         # 1. Try by document_hash
         surat = self.surat_repo.get_by_document_hash(hash_value)
-        
+
         # 2. If not found, try by signature_hash
         if not surat:
             sig = self.sig_repo.get_by_signature_hash(hash_value)
             if sig and sig.is_signed():
                 surat = self.surat_repo.get_by_id(sig.surat_id)
-                
+
         if not surat or surat.status != SuratStatus.SELESAI:
             raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan atau belum sah diterbitkan")
-            
+
         pdf_path = surat.pdf_path
-        if not pdf_path or not os.path.exists(pdf_path):
+        if not pdf_path:
+            raise HTTPException(status_code=404, detail="Berkas PDF tidak tersedia")
+
+        try:
+            pdf_bytes = storage_service.get_file_content(pdf_path)
+        except FileNotFoundError:
             raise HTTPException(status_code=404, detail="Berkas PDF fisik tidak ditemukan di server")
-            
+
+        import os
         filename = os.path.basename(pdf_path)
-        return FileResponse(
-            path=pdf_path,
-            filename=filename,
-            media_type="application/pdf"
+        return StreamingResponse(
+            BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 

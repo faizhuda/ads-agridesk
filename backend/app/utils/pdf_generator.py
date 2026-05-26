@@ -435,7 +435,7 @@ class PDFGenerator:
                         from app.utils.storage import storage_service
                         storage_service.get_file_content(sig_qr_filename)
                     except FileNotFoundError:
-                        url = f"/verify/{document_hash}" if document_hash else f"/verify-sig/{sig.signature_hash}"
+                        url = f"{settings.BASE_URL}/verify/{document_hash}" if document_hash else f"{settings.BASE_URL}/verify-sig/{sig.signature_hash}"
                         from app.utils.qr_generator import QRCodeGenerator
                         qr_path = QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
                         with open(qr_path, "rb") as f:
@@ -496,7 +496,7 @@ class PDFGenerator:
 
                     # 5. Domain branding
                     overlay.setFont("Helvetica", 3.5 * scale)
-                    overlay.drawRightString(pdf_x + pdf_w - (4 * scale), pdf_y + (3 * scale), "agridesk.ipb.ac.id")
+                    overlay.drawRightString(pdf_x + pdf_w - (4 * scale), pdf_y + (3 * scale), "drive.hq.idenx.id")
                 except Exception as e:
                     logger.error(f"Failed to draw signature overlay for owner_id {sig.owner_id}: {e}", exc_info=True)
 

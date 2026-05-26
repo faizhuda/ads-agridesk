@@ -171,7 +171,7 @@ export default function DosenAllSuratPage() {
           ))}
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hidden md:block">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-ivory border-b border-sepia-200">
@@ -220,6 +220,41 @@ export default function DosenAllSuratPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile List View */}
+        <div className="md:hidden flex flex-col divide-y divide-sepia-200">
+          {visibleRows.length === 0 ? (
+            <div className="py-12 text-center text-sm text-primary/50 italic">
+              Tidak ada catatan yang ditemukan.
+            </div>
+          ) : (
+            visibleRows.map((sig) => (
+              <div key={sig.id} className="p-4 hover:bg-ivory/50 transition-colors flex flex-col gap-3">
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <span className="text-xs text-primary/60 font-mono block mb-1">
+                      SR-2026-{String(sig.surat_id).padStart(4, '0')}
+                    </span>
+                    <p className="text-sm font-medium text-primary">{sig.surat_jenis || '-'}</p>
+                    <p className="text-xs text-primary/60 mt-1">{sig.mahasiswa_name || '-'}</p>
+                  </div>
+                  <span className={`shrink-0 px-2.5 py-1 text-[10px] font-medium tracking-wider uppercase border rounded-sm ${STATUS_STYLE[sig.statusLabel]}`}>
+                    {sig.statusLabel === 'MENUNGGU_TTD' ? 'Menunggu' : sig.statusLabel === 'SUDAH_TTD' ? 'Selesai TTD' : 'Ditolak'}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-end gap-2 mt-2">
+                  <span className="text-xs text-primary/70">
+                    {sig.signed_at ? new Date(sig.signed_at).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' }) : '-'}
+                  </span>
+                  <Link to={`/surat/${sig.surat_id}`} className="shrink-0 text-xs font-medium px-4 py-2 bg-primary text-white hover:bg-primary-dark transition-colors rounded-sm flex items-center justify-center">
+                    Detail
+                  </Link>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

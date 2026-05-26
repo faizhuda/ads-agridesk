@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, ShieldX, Search, User, Clock, FileText, Hash, CheckCircle, XCircle, ChevronRight, AlertTriangle, Download } from 'lucide-react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 export default function VerifyPage() {
   const { hash: urlHash } = useParams();
@@ -297,7 +298,7 @@ export default function VerifyPage() {
                   {statusType === 'valid' && (
                     <div className="pt-2">
                       <a
-                        href={`${api.defaults.baseURL || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'}/api/verify/download/${encodeURIComponent(result.document_hash || hash)}`}
+                        href={`${api.defaults.baseURL || getApiBaseUrl()}/api/verify/download/${encodeURIComponent(result.document_hash || hash)}`}
                         target="_blank"
                         rel="noreferrer"
                         className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-sm transition-all shadow-sm cursor-pointer hover:shadow-md active:scale-[0.98]"

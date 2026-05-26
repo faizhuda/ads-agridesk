@@ -5,12 +5,12 @@ import { motion } from 'framer-motion';
 import TableSkeleton from '../components/TableSkeleton';
 import EmptyState from '../components/EmptyState';
 import { useListData } from '../hooks/useListData';
-import {
-  SURAT_FILTERS,
+import { SURAT_FILTERS,
   SURAT_FILTER_LABELS,
   SURAT_STATUS_COLORS,
   SURAT_STATUS_LABELS,
 } from '../constants/suratStatus';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 export default function MahasiswaDashboard() {
   const fetchLetters = useCallback(() => {
@@ -167,7 +167,7 @@ export default function MahasiswaDashboard() {
           ))}
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hidden md:block">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-ivory border-b border-sepia-200">
@@ -209,7 +209,7 @@ export default function MahasiswaDashboard() {
                       <div className="flex justify-end gap-2">
                           <button onClick={() => {
                             const token = localStorage.getItem('token') || '';
-                            const url = `${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'}/api/surat/${s.id}/pdf?token=${encodeURIComponent(token)}`;
+                            const url = `${getApiBaseUrl()}/api/surat/${s.id}/pdf?token=${encodeURIComponent(token)}`;
                             const link = document.createElement('a');
                             link.href = url;
                             link.download = `surat-${s.id}.pdf`;
@@ -230,6 +230,57 @@ export default function MahasiswaDashboard() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile List View */}
+        <div className="md:hidden flex flex-col divide-y divide-sepia-200">
+          {visibleLetters.length === 0 ? (
+            <div className="p-4">
+              <EmptyState 
+                message={letters.length === 0 ? "Belum ada pengajuan" : "Pencarian tidak ditemukan"}
+                subMessage={letters.length === 0 ? "Anda belum mengajukan surat apapun." : "Coba kata kunci lain."}
+              />
+            </div>
+          ) : (
+            visibleLetters.map((s) => (
+              <div key={s.id} className="p-4 hover:bg-ivory/50 transition-colors flex flex-col gap-3">
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <span className="text-xs text-primary/60 font-mono block mb-1">
+                      SR-2026-{String(s.id).padStart(4, '0')}
+                    </span>
+                    <p className="text-sm font-medium text-primary">{s.jenis}</p>
+                  </div>
+                  <span className={`shrink-0 px-2.5 py-1 text-[10px] font-medium tracking-wider uppercase border rounded-sm ${SURAT_STATUS_COLORS[s.status] || SURAT_STATUS_COLORS.DRAFT}`}>
+                    {SURAT_STATUS_LABELS[s.status] || s.status}
+                  </span>
+                </div>
+                
+                <p className="text-xs text-primary/70 line-clamp-2">
+                  {s.keperluan}
+                </p>
+
+                <div className="flex justify-end gap-2 mt-2">
+                  <button onClick={() => {
+                    const token = localStorage.getItem('token') || '';
+                    const url = `${getApiBaseUrl()}/api/surat/${s.id}/pdf?token=${encodeURIComponent(token)}`;
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `surat-${s.id}.pdf`;
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }} className="flex-1 justify-center text-xs font-medium px-4 py-2 border border-sepia-200 text-primary hover:border-primary transition-colors rounded-sm bg-ivory flex items-center gap-1">
+                    Unduh PDF
+                  </button>
+                  <Link to={`/surat/${s.id}`} className="flex-1 text-center text-xs font-medium px-4 py-2 bg-primary text-white hover:bg-primary-dark transition-colors rounded-sm flex items-center justify-center">
+                    Detail
+                  </Link>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </motion.div>

@@ -26,6 +26,7 @@ from app.services.audit_log_service import AuditLogService
 from app.utils.hash_generator import HashGenerator
 from app.utils.qr_generator import QRCodeGenerator
 from app.utils.pdf_generator import PDFGenerator
+from app.config import settings
 
 
 class SuratService:
@@ -267,11 +268,16 @@ class SuratService:
         """Return the number of pages in the uploaded PDF."""
         surat = self.get_surat_with_access_check(surat_id, user_id, user_role)
         pdf_path = surat.file_path or surat.pdf_path
-        if not pdf_path or not os.path.exists(pdf_path):
+        if not pdf_path:
             raise EntityNotFoundError("File PDF tidak ditemukan")
         try:
-            reader = PdfReader(pdf_path)
+            from app.utils.storage import storage_service
+            from io import BytesIO
+            pdf_bytes = storage_service.get_file_content(pdf_path)
+            reader = PdfReader(BytesIO(pdf_bytes))
             return len(reader.pages)
+        except FileNotFoundError:
+            raise EntityNotFoundError("File PDF tidak ditemukan")
         except Exception as e:
             logger.error(f"Failed to read PDF pages for surat_id {surat_id}: {e}", exc_info=True)
             return 1
@@ -318,7 +324,7 @@ class SuratService:
             try:
                 surat = service._get_surat_or_raise(surat_id)
 
-                verification_url = f"/verify/{document_hash}"
+                verification_url = f"{settings.BASE_URL}/verify/{document_hash}"
                 qr_filename = f"qr_{surat.id}.png"
                 qr_path = QRCodeGenerator.generate_qr_code(verification_url, qr_filename)
 

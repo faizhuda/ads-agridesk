@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 export default function PdfViewerPage() {
   const { id } = useParams();
 
   const token = localStorage.getItem('token') || '';
-  const backendBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+  const backendBase = getApiBaseUrl();
   const pdfUrl = useMemo(
     () => `${backendBase}/api/surat/${id}/pdf?token=${encodeURIComponent(token)}`,
     [id, token]

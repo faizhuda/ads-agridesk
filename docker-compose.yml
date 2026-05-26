@@ -1,29 +1,6 @@
 version: '3.8'
 
 services:
-  minio:
-    image: minio/minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-
-  minio-setup:
-    image: minio/mc
-    depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin &&
-      /usr/bin/mc mb myminio/agridesk-uploads --ignore-existing &&
-      /usr/bin/mc anonymous set public myminio/agridesk-uploads
-      "
-
   db:
     image: postgres:15-alpine
     restart: always
@@ -45,25 +22,34 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/agridesk
+      # Override DATABASE_URL to the Tailscale/external DB when needed
+      # DATABASE_URL is read from .env (100.65.114.94 Tailscale IP)
+
+      # Deployment public URL — used by QR code generator
+      - BASE_URL=https://drive.hq.idenx.id
+
+      # Use local filesystem storage (no MinIO/S3)
+      - USE_S3=false
+      - UPLOAD_DIR=uploads
     volumes:
-      # Mount folder uploads agar file tidak hilang jika container mati
-      - ./backend/uploads:/app/uploads
-    depends_on:
-      - db
+      # Bind-mount to mini-pc disk so uploads persist across container restarts
+      - /disk/data-01/tristan/data-agd/uploads:/app/uploads
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # URL Backend untuk frontend saat build process
-        - VITE_API_BASE_URL=http://localhost:8000
+        # API base URL — frontend calls go through nginx /api proxy,
+        # so at build-time we leave this empty (relative URL).
+        # Nginx inside the frontend container handles /api → backend.
+        - VITE_API_BASE_URL=
     ports:
       - "5173:80"
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
   postgres_data:
-  minio_data:

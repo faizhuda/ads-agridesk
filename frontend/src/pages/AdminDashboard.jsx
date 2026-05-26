@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import TableSkeleton from '../components/TableSkeleton';
 import EmptyState from '../components/EmptyState';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 const STATUS_LABEL = {
   DRAFT: 'Draft',
@@ -129,7 +130,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hidden md:block">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-ivory border-b border-sepia-200">
@@ -166,7 +167,7 @@ export default function AdminDashboard() {
                       <div className="flex justify-end gap-2">
                         <button onClick={() => {
                           const token = localStorage.getItem('token') || '';
-                          const url = `${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'}/api/surat/${s.id}/pdf?token=${encodeURIComponent(token)}`;
+                          const url = `${getApiBaseUrl()}/api/surat/${s.id}/pdf?token=${encodeURIComponent(token)}`;
                           const link = document.createElement('a');
                           link.href = url;
                           link.download = `surat-${s.id}.pdf`;
@@ -187,6 +188,55 @@ export default function AdminDashboard() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile List View */}
+        <div className="md:hidden flex flex-col divide-y divide-sepia-200">
+          {visiblePending.length === 0 ? (
+            <div className="p-4">
+              <EmptyState 
+                message={pending.length === 0 ? "Meja kerja bersih" : "Pencarian tidak ditemukan"}
+                subMessage={pending.length === 0 ? "Tidak ada surat yang perlu disahkan." : "Coba kata kunci lain."}
+              />
+            </div>
+          ) : (
+            visiblePending.map((s) => (
+              <div key={s.id} className="p-4 hover:bg-ivory/50 transition-colors flex flex-col gap-3">
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <span className="text-xs text-primary/60 font-mono block mb-1">
+                      SR-2026-{String(s.id).padStart(4, '0')}
+                    </span>
+                    <p className="text-sm font-medium text-primary">{s.jenis}</p>
+                    <p className="text-xs text-primary/60 mt-1">{s.mahasiswa_name || s.mahasiswa_nim}</p>
+                  </div>
+                </div>
+                
+                <p className="text-xs text-primary/70 line-clamp-2 mt-1">
+                  {s.keperluan}
+                </p>
+
+                <div className="flex justify-end gap-2 mt-2">
+                  <button onClick={() => {
+                    const token = localStorage.getItem('token') || '';
+                    const url = `${getApiBaseUrl()}/api/surat/${s.id}/pdf?token=${encodeURIComponent(token)}`;
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `surat-${s.id}.pdf`;
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }} className="flex-1 justify-center text-xs font-medium px-4 py-2 border border-sepia-200 text-primary hover:border-primary transition-colors rounded-sm bg-ivory flex items-center gap-1">
+                    Unduh PDF
+                  </button>
+                  <Link to={`/surat/${s.id}`} className="flex-1 text-center text-xs font-medium px-4 py-2 bg-primary text-white hover:bg-primary-dark transition-colors rounded-sm flex items-center justify-center">
+                    Detail
+                  </Link>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </motion.div>
