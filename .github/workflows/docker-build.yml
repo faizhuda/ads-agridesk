@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - docker
+  workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   build-backend:
