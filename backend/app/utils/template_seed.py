@@ -17,7 +17,9 @@ DEFAULT_INTERNAL_TEMPLATES = [
             {"name": "kode_mata_kuliah", "label": "Kode MK", "type": "text"},
             {"name": "semester", "label": "Semester", "type": "number"},
             {"name": "tahun_akademik", "label": "Tahun Akademik", "type": "text"},
-            {"name": "alasan_pembatalan_kuliah", "label": "Alasan Pembatalan", "type": "text"}
+            {"name": "alasan_pembatalan_kuliah", "label": "Alasan Pembatalan", "type": "text"},
+            {"name": "dosen_pembimbing", "label": "Dosen Pembimbing", "type": "lecturer"},
+            {"name": "ketua_program_studi_ilmu_komputer", "label": "Ketua Program Studi", "type": "lecturer"}
         ]
     }
 ]

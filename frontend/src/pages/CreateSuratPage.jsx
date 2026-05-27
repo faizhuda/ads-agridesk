@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import { getErrorMessage } from '../utils/error';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 
 function CustomFormDropdown({ value, onChange, placeholder, options }) {
@@ -23,46 +22,30 @@ function CustomFormDropdown({ value, onChange, placeholder, options }) {
         <ChevronDown size={16} className={`text-primary/60 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            {/* Click outside backdrop */}
-            <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-            
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15 }}
-              className="absolute left-0 right-0 mt-1.5 bg-white border border-sepia-200 rounded-sm shadow-lg max-h-60 overflow-y-auto z-20"
-            >
-              <ul className="py-1">
-                {options.map((option) => (
-                  <li key={option.value}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onChange(option.value);
-                        setIsOpen(false);
-                      }}
-                      className={`w-full px-4 py-2.5 text-left text-sm transition-colors flex items-center justify-between
-                        ${value === option.value 
-                          ? 'bg-primary text-white font-medium' 
-                          : 'text-primary/80 hover:bg-ivory hover:text-primary'
-                        }`}
-                    >
-                      <span>{option.label}</span>
-                      {value === option.value && (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                      )}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute left-0 right-0 mt-1.5 bg-white border border-sepia-200 rounded-sm shadow-lg max-h-60 overflow-y-auto z-20">
+            <ul className="py-1">
+              {options.map((option) => (
+                <li key={option.value}>
+                  <button
+                    type="button"
+                    onClick={() => { onChange(option.value); setIsOpen(false); }}
+                    className={`w-full px-4 py-2.5 text-left text-sm transition-colors flex items-center justify-between
+                      ${value === option.value ? 'bg-primary text-white font-medium' : 'text-primary/80 hover:bg-ivory hover:text-primary'}`}
+                  >
+                    <span>{option.label}</span>
+                    {value === option.value && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -389,10 +372,19 @@ export default function CreateSuratPage() {
 
   const renderPembatalanFields = () => {
     if (!selectedTemplate) return null;
+    const fields = selectedTemplate.required_fields || [];
+    if (fields.length === 0) return null;
+
+    // Dynamic section title based on template
+    const sectionTitle = selectedTemplate.name === 'Surat Pembatalan Mata Kuliah'
+      ? 'Detail Pembatalan'
+      : selectedTemplate.name === 'Surat Keterangan Aktif Kuliah'
+      ? 'Detail Surat'
+      : 'Detail Pengajuan';
 
     return (
       <div className="space-y-5 pt-6 border-t border-sepia-200">
-        <h3 className="text-base font-serif text-primary">Detail Pembatalan</h3>
+        <h3 className="text-base font-serif text-primary">{sectionTitle}</h3>
         {(selectedTemplate.required_fields || []).map((fieldKey) => {
           if (LECTURER_FIELD_KEYS.has(fieldKey)) {
             return (
@@ -463,12 +455,7 @@ export default function CreateSuratPage() {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12"
-    >
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-12">
         <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Pengajuan &middot; Formulir Baru</p>
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
@@ -581,6 +568,6 @@ export default function CreateSuratPage() {
           </div>
         </form>
       </div>
-    </motion.div>
+    </div>
   );
 }

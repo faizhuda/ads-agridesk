@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Upload, FileText, Users, PenTool, ChevronRight, ChevronLeft, X, GripVertical, Check, Trash2, Search, UserPlus, Plus } from 'lucide-react';
+import { Upload, FileText, Users, PenTool, ChevronRight, ChevronLeft, X, Check, Trash2, Search, UserPlus, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDropzone } from 'react-dropzone';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -69,7 +68,7 @@ function StepUpload({ file, setFile, jenis, setJenis, keperluan, setKeperluan, o
   const canProceed = file && jenis.trim() && keperluan.trim();
 
   return (
-    <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-8">
+    <div className="space-y-8">
       {/* Dropzone */}
       <div
         {...getRootProps()}
@@ -111,7 +110,7 @@ function StepUpload({ file, setFile, jenis, setJenis, keperluan, setKeperluan, o
           Lanjut <ChevronRight size={16} />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -159,7 +158,7 @@ function StepSigners({ signers, setSigners, isSequential, setIsSequential, onNex
   };
 
   return (
-    <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-8">
+    <div className="space-y-8">
       <div>
         <h3 className="text-lg font-serif text-primary mb-1">Tambahkan Penanda Tangan</h3>
         <p className="text-sm text-primary/60">Cari pengguna terdaftar Agridesk berdasarkan nama, email, NIP, atau NIM.</p>
@@ -240,7 +239,7 @@ function StepSigners({ signers, setSigners, isSequential, setIsSequential, onNex
           Lanjut <ChevronRight size={16} />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -357,7 +356,7 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
   const handleSubmitWithFields = () => { onSubmit(fields); };
 
   return (
-    <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-6">
+    <div className="space-y-6">
       <div>
         <h3 className="text-lg font-serif text-primary mb-1">Tempatkan Tanda Tangan</h3>
         <p className="text-sm text-primary/60">Klik <strong>+ Tambah</strong> untuk menambahkan area tanda tangan. Satu penanda tangan bisa memiliki beberapa area di halaman berbeda.</p>
@@ -429,7 +428,7 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
           {submitting ? 'Mengirim...' : 'Kirim Dokumen'} <Check size={16} />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -482,7 +481,7 @@ export default function ExternalUploadWizardPage() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* Header */}
       <div className="mb-10">
         <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Pengajuan &middot; Dokumen Eksternal</p>
@@ -500,12 +499,10 @@ export default function ExternalUploadWizardPage() {
       <StepIndicator current={step} />
 
       <div className="bg-white border border-sepia-200 rounded-sm shadow-sm p-6 sm:p-8">
-        <AnimatePresence mode="wait">
           {step === 0 && <StepUpload key="upload" file={file} setFile={setFile} jenis={jenis} setJenis={setJenis} keperluan={keperluan} setKeperluan={setKeperluan} onNext={() => setStep(1)} />}
           {step === 1 && <StepSigners key="signers" signers={signers} setSigners={setSigners} isSequential={isSequential} setIsSequential={setIsSequential} onNext={() => setStep(2)} onBack={() => setStep(0)} currentUser={user} />}
           {step === 2 && <StepPlacement key="placement" file={file} signers={signers} onBack={() => setStep(1)} onSubmit={handleSubmit} submitting={submitting} />}
-        </AnimatePresence>
       </div>
-    </motion.div>
+    </div>
   );
 }
