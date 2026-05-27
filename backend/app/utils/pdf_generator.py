@@ -427,15 +427,14 @@ class PDFGenerator:
                     # 1. Background & Border
                     overlay.setFillColorRGB(1, 1, 1, 0.8)
                     overlay.rect(pdf_x, pdf_y, pdf_w, pdf_h, fill=1, stroke=0)
-                    
                     overlay.setStrokeColorRGB(0.2, 0.2, 0.2)
                     overlay.setLineWidth(0.7)
                     overlay.rect(pdf_x, pdf_y, pdf_w, pdf_h, fill=0, stroke=1)
 
-                    # 2. QR Code
-                    sig_qr_filename = f"sig_qr_{sig.owner_id}.png"
+                    # 2. QR Code — unique per signature hash
+                    sig_qr_filename = f"sig_qr_{sig.signature_hash[:16]}.png"
+                    from app.utils.storage import storage_service
                     try:
-                        from app.utils.storage import storage_service
                         storage_service.get_file_content(sig_qr_filename)
                     except FileNotFoundError:
                         url = f"{settings.BASE_URL}/verify/{document_hash}" if document_hash else f"{settings.BASE_URL}/verify-sig/{sig.signature_hash}"
@@ -448,7 +447,6 @@ class PDFGenerator:
                     qr_y = pdf_y + qr_padding
 
                     try:
-                        from app.utils.storage import storage_service
                         from reportlab.lib.utils import ImageReader
                         qr_bytes = storage_service.get_file_content(sig_qr_filename)
                         qr_img = ImageReader(BytesIO(qr_bytes))
@@ -463,11 +461,9 @@ class PDFGenerator:
                     # 3. Text label
                     text_x = qr_x + qr_size + qr_padding
                     text_y = pdf_y + pdf_h - (8 * scale)
-
                     overlay.setFillColorRGB(0.2, 0.2, 0.2)
                     overlay.setFont("Helvetica", 3.8 * scale)
                     overlay.drawString(text_x, text_y, "Ditandatangani secara elektronik oleh:")
-
                     overlay.setFont("Helvetica-Bold", 4.2 * scale)
                     owner_name = (sig.owner_name or "Sistem Agridesk")[:25]
                     overlay.drawString(text_x, text_y - (5.5 * scale), owner_name)
@@ -477,13 +473,11 @@ class PDFGenerator:
                     sig_img_w = pdf_w - qr_size - (3 * qr_padding)
                     sig_img_y = pdf_y + (4 * scale)
                     try:
-                        from app.utils.storage import storage_service
                         from reportlab.lib.utils import ImageReader
                         sig_bytes = storage_service.get_file_content(sig.image_path)
                         img = ImageReader(BytesIO(sig_bytes))
                         overlay.drawImage(
-                            img,
-                            text_x, sig_img_y,
+                            img, text_x, sig_img_y,
                             width=sig_img_w, height=sig_img_h,
                             preserveAspectRatio=True, mask="auto"
                         )
