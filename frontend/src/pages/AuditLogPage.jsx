@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { Activity, Clock, User, ShieldAlert, Monitor, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import api from '../api';
 import { format } from 'date-fns';
@@ -63,12 +62,7 @@ export default function AuditLogPage() {
   }
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"
-    >
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-12">
         <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Aktivitas Sistem &middot; Admin</p>
         <div className="max-w-2xl">
@@ -272,6 +266,6 @@ export default function AuditLogPage() {
           </div>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

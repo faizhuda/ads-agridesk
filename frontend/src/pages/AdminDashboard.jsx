@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import { getErrorMessage } from '../utils/error';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
 import TableSkeleton from '../components/TableSkeleton';
 import EmptyState from '../components/EmptyState';
 import { getApiBaseUrl } from '../utils/apiBaseUrl';
@@ -69,12 +68,7 @@ export default function AdminDashboard() {
   );
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"
-    >
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-12">
         <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Antrean &middot; Persetujuan Akhir</p>
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
@@ -239,6 +233,6 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

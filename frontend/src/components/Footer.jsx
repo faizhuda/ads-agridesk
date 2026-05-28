@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { X, Shield, Lock, HelpCircle, FileText, ExternalLink, Mail, Phone, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -47,26 +46,13 @@ export default function Footer() {
       </footer>
 
       {/* Interactive Modal System */}
-      <AnimatePresence>
-        {activeTab && (
+      {activeTab && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+            <div
               onClick={closeModal}
               className="fixed inset-0 bg-black/40 backdrop-blur-xs"
             />
-
-            {/* Modal Body */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              className="relative w-full max-w-3xl bg-white border border-sepia-200 shadow-2xl rounded-sm overflow-hidden flex flex-col max-h-[85vh] z-10"
-            >
+            <div className="relative w-full max-w-3xl bg-white border border-sepia-200 shadow-2xl rounded-sm overflow-hidden flex flex-col max-h-[85vh] z-10">
               {/* Header */}
               <div className="px-6 py-4 bg-ivory border-b border-sepia-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -124,11 +110,7 @@ export default function Footer() {
                 
                 {/* 1. KETENTUAN LAYANAN */}
                 {activeTab === 'terms' && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="space-y-6"
-                  >
+                  <div className="space-y-6">
                     <div>
                       <h4 className="text-lg font-serif font-semibold text-primary mb-2">Ketentuan Penggunaan Platform Agridesk</h4>
                       <p className="text-xs text-primary/40">Terakhir diperbarui: 17 Mei 2026</p>
@@ -154,16 +136,12 @@ export default function Footer() {
                         <p className="text-xs">Setiap upaya memanipulasi, memalsukan isi dokumen, mengunggah data palsu, atau menggunakan profil tanda tangan milik orang lain secara tidak sah akan dicatat oleh sistem log audit dan akan dikenakan sanksi akademik yang berat.</p>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* 2. KEBIJAKAN PRIVASI */}
                 {activeTab === 'privacy' && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="space-y-6"
-                  >
+                  <div className="space-y-6">
                     <div>
                       <h4 className="text-lg font-serif font-semibold text-primary mb-2">Kebijakan Privasi Perlindungan Data</h4>
                       <p className="text-xs text-primary/40">Terakhir diperbarui: 17 Mei 2026</p>
@@ -189,16 +167,12 @@ export default function Footer() {
                         <p className="text-xs text-primary/70">Seluruh berkas dokumen PDF akhir diproteksi menggunakan integritas hash SHA-256 publik yang menjamin isi surat tidak dapat dirusak atau dimodifikasi tanpa merusak rantai keabsahan tanda tangan.</p>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* 3. BANTUAN & SUPPORT */}
                 {activeTab === 'help' && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="space-y-6"
-                  >
+                  <div className="space-y-6">
                     <div>
                       <h4 className="text-lg font-serif font-semibold text-primary mb-2">Pusat Bantuan & Panduan Layanan</h4>
                       <p className="text-xs text-primary/40">Menemukan masalah? Silakan baca panduan di bawah ini.</p>
@@ -245,7 +219,7 @@ export default function Footer() {
                         </button>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
               </div>
 
@@ -259,10 +233,9 @@ export default function Footer() {
                   Selesai
                 </button>
               </div>
-            </motion.div>
+            </div>
           </div>
         )}
-      </AnimatePresence>
     </>
   );
 }
