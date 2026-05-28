@@ -125,8 +125,8 @@ class PDFGenerator:
                 except FileNotFoundError:
                     url = f"{settings.BASE_URL}/verify-sig/{signature_hash}"
                     from app.utils.qr_generator import QRCodeGenerator
-                    QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
-                    qr_bytes = storage_service.get_file_content(sig_qr_filename)
+                    saved_key = QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
+                    qr_bytes = storage_service.get_file_content(saved_key)
                 qr_img = ImageReader(BytesIO(qr_bytes))
                 pdf_canvas.drawImage(qr_img, qr_x, qr_y, width=qr_size, height=qr_size, preserveAspectRatio=True, mask="auto")
                 # Label under QR
