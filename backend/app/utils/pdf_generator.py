@@ -463,11 +463,12 @@ class PDFGenerator:
                     sig_qr_filename = f"sig_qr_{sig.signature_hash[:16]}.png"
                     from app.utils.storage import storage_service
                     try:
-                        storage_service.get_file_content(sig_qr_filename)
+                        sig_qr_key = storage_service.get_file_content(sig_qr_filename)
+                        sig_qr_key = sig_qr_filename  # exists, use as-is
                     except FileNotFoundError:
                         url = f"{settings.BASE_URL}/verify/{document_hash}" if document_hash else f"{settings.BASE_URL}/verify-sig/{sig.signature_hash}"
                         from app.utils.qr_generator import QRCodeGenerator
-                        QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
+                        sig_qr_key = QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
 
                     qr_padding = 4 * scale
                     qr_size = pdf_h - (qr_padding * 2)
@@ -476,7 +477,7 @@ class PDFGenerator:
 
                     try:
                         from reportlab.lib.utils import ImageReader
-                        qr_bytes = storage_service.get_file_content(sig_qr_filename)
+                        qr_bytes = storage_service.get_file_content(sig_qr_key)
                         qr_img = ImageReader(BytesIO(qr_bytes))
                         overlay.drawImage(
                             qr_img, qr_x, qr_y,
