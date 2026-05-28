@@ -90,11 +90,16 @@ class SuratService:
         unique_id = uuid.uuid4().hex[:8]
         safe_jenis = jenis.replace(" ", "_")
         filename = f"surat_{safe_jenis}_{mahasiswa_id}_{unique_id}.pdf"
+
+        # Pre-generate signature hash so it can be embedded as QR in the PDF
+        pre_sig_hash = HashGenerator.generate_hash(f"pre:{mahasiswa_id}:{unique_id}")
+
         pdf_path = PDFGenerator.generate_from_template(
             jenis,
             enriched_fields,
             filename,
             signature_path=mahasiswa.signature_image_path,
+            signature_hash=pre_sig_hash,
         )
 
         # Build domain entity
@@ -166,7 +171,16 @@ class SuratService:
                 )
                 self.signature_repo.create(sig_kaprodi)
         else:
-            # Fallback for other internal templates
+            # Fallback for other internal templates (e.g. Surat Keterangan Aktif Kuliah)
+            # Create a signed mahasiswa signature record so the QR hash is verifiable
+            sig_mhs = Signature(
+                surat_id=surat.id,
+                owner_id=mahasiswa_id,
+                role=UserRole.MAHASISWA,
+            )
+            sig_mhs.sign(mahasiswa.signature_image_path or "", pre_sig_hash)
+            self.signature_repo.create(sig_mhs)
+
             if lecturer_ids:
                 for lid in lecturer_ids:
                     sig = Signature(surat_id=surat.id, owner_id=lid, role=UserRole.DOSEN)

@@ -98,7 +98,7 @@ class PDFGenerator:
         return box_y - 0.85 * cm
 
     @staticmethod
-    def _draw_signature_block(pdf_canvas: canvas.Canvas, width: float, y: float, signature_path: Optional[str]) -> None:
+    def _draw_signature_block(pdf_canvas: canvas.Canvas, width: float, y: float, signature_path: Optional[str], signature_hash: Optional[str] = None, owner_name: Optional[str] = None) -> None:
         block_width = 7.2 * cm
         block_height = 4.3 * cm
         block_x = width - 2.15 * cm - block_width
@@ -109,6 +109,37 @@ class PDFGenerator:
         pdf_canvas.setFillColor(colors.HexColor("#184d47"))
         pdf_canvas.setFont("Helvetica-Bold", 9)
         pdf_canvas.drawCentredString(block_x + block_width / 2, block_y + block_height - 0.55 * cm, "Tanda Tangan Mahasiswa")
+
+        # QR code on the left side of the signature block
+        qr_size = 2.0 * cm
+        qr_x = block_x + 0.2 * cm
+        qr_y = block_y + 0.4 * cm
+        if signature_hash:
+            try:
+                from app.utils.storage import storage_service
+                from app.config import settings
+                from reportlab.lib.utils import ImageReader
+                sig_qr_filename = f"sig_qr_{signature_hash[:16]}.png"
+                try:
+                    qr_bytes = storage_service.get_file_content(sig_qr_filename)
+                except FileNotFoundError:
+                    url = f"{settings.BASE_URL}/verify-sig/{signature_hash}"
+                    from app.utils.qr_generator import QRCodeGenerator
+                    QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
+                    qr_bytes = storage_service.get_file_content(sig_qr_filename)
+                qr_img = ImageReader(BytesIO(qr_bytes))
+                pdf_canvas.drawImage(qr_img, qr_x, qr_y, width=qr_size, height=qr_size, preserveAspectRatio=True, mask="auto")
+                # Label under QR
+                pdf_canvas.setFillColor(colors.HexColor("#6b7280"))
+                pdf_canvas.setFont("Helvetica", 5)
+                pdf_canvas.drawCentredString(qr_x + qr_size / 2, qr_y - 0.25 * cm, "Scan untuk verifikasi")
+            except Exception as e:
+                logger.error(f"Failed to draw QR in signature block: {e}")
+
+        # Signature image — offset right to make room for QR
+        sig_x = block_x + qr_size + 0.5 * cm if signature_hash else block_x + 0.8 * cm
+        sig_width = block_width - (qr_size + 0.7 * cm) if signature_hash else 5.55 * cm
+
         if signature_path:
             try:
                 from app.utils.storage import storage_service
@@ -116,13 +147,9 @@ class PDFGenerator:
                 sig_bytes = storage_service.get_file_content(signature_path)
                 img = ImageReader(BytesIO(sig_bytes))
                 pdf_canvas.drawImage(
-                    img,
-                    block_x + 0.8 * cm,
-                    block_y + 0.55 * cm,
-                    width=5.55 * cm,
-                    height=2.4 * cm,
-                    preserveAspectRatio=True,
-                    mask="auto",
+                    img, sig_x, block_y + 0.55 * cm,
+                    width=sig_width, height=2.4 * cm,
+                    preserveAspectRatio=True, mask="auto",
                 )
             except Exception as e:
                 logger.error(f"Failed to load signature from storage: {e}")
@@ -281,6 +308,7 @@ class PDFGenerator:
         fields: Dict[str, str],
         filename: str,
         signature_path: Optional[str] = None,
+        signature_hash: Optional[str] = None,
     ) -> str:
         try:
             buffer = BytesIO()
@@ -317,7 +345,7 @@ class PDFGenerator:
                 pdf.drawString(col3_x, 3.7 * cm, fields.get("nama", "-"))
                 pdf.drawString(col3_x, 3.2 * cm, f"NIM. {fields.get('nim', '-')}")
             else:
-                PDFGenerator._draw_signature_block(pdf, width, y, signature_path)
+                PDFGenerator._draw_signature_block(pdf, width, y, signature_path, signature_hash=signature_hash)
             pdf.save()
             
             from app.utils.storage import storage_service
