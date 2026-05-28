@@ -266,6 +266,9 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
   const fileUrlRef = useRef(null);
   let fieldCounter = useRef(0);
 
+  // pdfWidth must be declared before the useEffect that references it
+  const pdfWidth = Math.min(containerWidth - 32, 700);
+
   // Mouse/Touch move/up for drag & resize
   useEffect(() => {
     if (!dragging && !resizing) return;
@@ -311,7 +314,7 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
       window.removeEventListener('mouseup', handleMouseUp); 
       window.removeEventListener('touchend', handleMouseUp);
     };
-  }, [dragging, resizing, pdfWidth]);
+  }, [dragging, resizing]);
 
   useEffect(() => {
     if (fileUrlRef.current) { URL.revokeObjectURL(fileUrlRef.current); fileUrlRef.current = null; }
@@ -326,8 +329,6 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
-
-  const pdfWidth = Math.min(containerWidth - 32, 700);
 
   const addField = (signer) => {
     fieldCounter.current += 1;
