@@ -6,17 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import { getErrorMessage } from '../utils/error';
 
-// Lazy load react-pdf to avoid pdfjs-dist circular dependency TDZ crash
-const ReactPDFViewer = lazy(() =>
-  import('react-pdf').then((mod) => {
-    mod.pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${mod.pdfjs.version}/build/pdf.worker.min.mjs`;
-    return { default: ({ file, currentPage, width, onLoadSuccess }) => (
-      <mod.Document file={file} onLoadSuccess={onLoadSuccess} loading={<div className="flex items-center justify-center h-96 text-sm text-primary/40">Memuat PDF...</div>}>
-        <mod.Page pageNumber={currentPage} width={width} renderAnnotationLayer={false} renderTextLayer={false} />
-      </mod.Document>
-    )};
-  })
-);
+// Lazy load PDF viewer in its own chunk to isolate pdfjs-dist TDZ crash
+const PdfPageViewer = lazy(() => import('../components/PdfPageViewer'));
 
 const SIGNER_COLORS = [
   { bg: 'rgba(13,148,136,0.15)', border: '#0d9488', text: '#0f766e', label: 'Teal' },
@@ -402,7 +393,7 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
           <div className="relative" style={{ width: pdfWidth }}>
             {fileUrl && (
               <Suspense fallback={<div className="flex items-center justify-center h-96 text-sm text-primary/40">Memuat PDF...</div>}>
-                <ReactPDFViewer
+                <PdfPageViewer
                   file={fileUrl}
                   currentPage={currentPage}
                   width={pdfWidth}
