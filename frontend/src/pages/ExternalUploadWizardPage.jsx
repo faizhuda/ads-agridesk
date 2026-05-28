@@ -1,16 +1,23 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Upload, FileText, Users, PenTool, ChevronRight, ChevronLeft, X, Check, Trash2, Search, UserPlus, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDropzone } from 'react-dropzone';
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
 import api from '../api';
 import { getErrorMessage } from '../utils/error';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Lazy load react-pdf to avoid pdfjs-dist circular dependency TDZ crash
+const ReactPDFViewer = lazy(() =>
+  import('react-pdf').then((mod) => {
+    mod.pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${mod.pdfjs.version}/build/pdf.worker.min.mjs`;
+    return { default: ({ file, currentPage, width, onLoadSuccess }) => (
+      <mod.Document file={file} onLoadSuccess={onLoadSuccess} loading={<div className="flex items-center justify-center h-96 text-sm text-primary/40">Memuat PDF...</div>}>
+        <mod.Page pageNumber={currentPage} width={width} renderAnnotationLayer={false} renderTextLayer={false} />
+      </mod.Document>
+    )};
+  })
+);
 
 const SIGNER_COLORS = [
   { bg: 'rgba(13,148,136,0.15)', border: '#0d9488', text: '#0f766e', label: 'Teal' },
@@ -384,9 +391,14 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
         <div className="flex justify-center p-4">
           <div className="relative" style={{ width: pdfWidth }}>
             {fileUrl && (
-              <Document file={fileUrl} onLoadSuccess={({ numPages: n }) => setNumPages(n)} loading={<div className="flex items-center justify-center h-96 text-sm text-primary/40">Memuat PDF...</div>}>
-                <Page pageNumber={currentPage} width={pdfWidth} renderAnnotationLayer={false} renderTextLayer={false} />
-              </Document>
+              <Suspense fallback={<div className="flex items-center justify-center h-96 text-sm text-primary/40">Memuat PDF...</div>}>
+                <ReactPDFViewer
+                  file={fileUrl}
+                  currentPage={currentPage}
+                  width={pdfWidth}
+                  onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+                />
+              </Suspense>
             )}
             {/* Signature fields overlay */}
             {fields.filter((f) => f.page_number === currentPage).map((f) => (
