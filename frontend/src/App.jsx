@@ -18,11 +18,12 @@ import CreateSuratPage from './pages/CreateSuratPage';
 import SuratDetailPage from './pages/SuratDetailPage';
 import SignatureProfilePage from './pages/SignatureProfilePage';
 import PdfViewerPage from './pages/PdfViewerPage';
-import ExternalUploadWizardPage from './pages/ExternalUploadWizardPage';
 import './index.css';
 
 // Lazy load VerifyPage to isolate framer-motion initialization in its own chunk
 const VerifyPage = lazy(() => import('./pages/VerifyPage'));
+// Lazy load ExternalUploadWizardPage to isolate react-pdf/pdfjs-dist TDZ crash
+const ExternalUploadWizardPage = lazy(() => import('./pages/ExternalUploadWizardPage'));
 
 export default function App() {
   return (
@@ -65,7 +66,11 @@ export default function App() {
               <ProtectedRoute roles={['MAHASISWA']}><CreateSuratPage /></ProtectedRoute>
             } />
             <Route path="/surat/new/external" element={
-              <ProtectedRoute roles={['MAHASISWA']}><ExternalUploadWizardPage /></ProtectedRoute>
+              <ProtectedRoute roles={['MAHASISWA']}>
+                <Suspense fallback={<div className="flex justify-center items-center h-64 text-primary/50 text-sm">Memuat...</div>}>
+                  <ExternalUploadWizardPage />
+                </Suspense>
+              </ProtectedRoute>
             } />
             <Route path="/signature/me" element={
               <ProtectedRoute><SignatureProfilePage /></ProtectedRoute>
