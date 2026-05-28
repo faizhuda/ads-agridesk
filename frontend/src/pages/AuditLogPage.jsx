@@ -72,7 +72,7 @@ export default function AuditLogPage() {
       <div className="mb-12">
         <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Aktivitas Sistem &middot; Admin</p>
         <div className="max-w-2xl">
-          <h1 className="text-4xl font-serif text-primary mb-3">
+          <h1 className="text-3xl sm:text-4xl font-serif text-primary mb-3">
             Audit <span className="italic">Logs.</span>
           </h1>
           <p className="text-sm text-primary/70 leading-relaxed">

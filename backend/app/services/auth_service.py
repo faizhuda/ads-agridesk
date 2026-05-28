@@ -1,7 +1,9 @@
+import hashlib
+
 from sqlalchemy.orm import Session
 
 from app.domain.enums import UserRole
-from app.domain.exceptions import DuplicateEntityError, EntityNotFoundError, ValidationError
+from app.domain.exceptions import DuplicateEntityError, EntityNotFoundError, UnauthorizedError, ValidationError
 from app.domain.user import User
 from app.repositories.user_repository import UserRepository
 from app.utils.security import hash_password, verify_password, create_access_token, create_refresh_token
@@ -12,6 +14,11 @@ class AuthService:
 
     def __init__(self, db: Session):
         self.user_repo = UserRepository(db)
+
+    @staticmethod
+    def _hash_refresh_token(token: str) -> str:
+        """Return SHA-256 hex digest of a refresh token string for safe DB storage."""
+        return hashlib.sha256(token.encode()).hexdigest()
 
     def register(
         self,
@@ -50,6 +57,7 @@ class AuthService:
         # Keep JWT subject as string for standards-compliant decoding.
         token = create_access_token(data={"sub": str(user.id), "role": user.role.value})
         refresh_token = create_refresh_token(data={"sub": str(user.id)})
+        self.user_repo.update_refresh_token_hash(user.id, self._hash_refresh_token(refresh_token))
         return {
             "access_token": token,
             "refresh_token": refresh_token,
@@ -77,10 +85,14 @@ class AuthService:
         user = self.user_repo.get_by_id(int(user_id))
         if not user:
             raise UnauthorizedError("User tidak ditemukan")
-            
+
+        if not user.refresh_token_hash or user.refresh_token_hash != self._hash_refresh_token(refresh_token):
+            raise UnauthorizedError("Refresh token tidak valid atau sudah digunakan")
+
         new_token = create_access_token(data={"sub": str(user.id), "role": user.role.value})
         new_refresh = create_refresh_token(data={"sub": str(user.id)})
-        
+        self.user_repo.update_refresh_token_hash(user.id, self._hash_refresh_token(new_refresh))
+
         return {
             "access_token": new_token,
             "refresh_token": new_refresh,

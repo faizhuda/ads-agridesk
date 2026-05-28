@@ -5,7 +5,7 @@ import api from '../api';
 import { getErrorMessage } from '../utils/error';
 import { toast } from 'sonner';
 import { Copy, ShieldCheck } from 'lucide-react';
-import { getApiBaseUrl } from '../utils/apiBaseUrl';
+import { downloadSuratPdf, fetchSuratPdfBlobUrl } from '../utils/pdf';
 
 const STATUS_LABEL = {
   DRAFT: 'Draft',
@@ -38,6 +38,8 @@ export default function SuratDetailPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+  const [pdfError, setPdfError] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +57,15 @@ export default function SuratDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    let url = null;
+    setPdfError(false);
+    fetchSuratPdfBlobUrl(id)
+      .then(blobUrl => { url = blobUrl; setPdfBlobUrl(blobUrl); })
+      .catch(() => setPdfError(true));
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [id]);
 
   const handleSubmit = async () => {
     try {
@@ -184,7 +195,10 @@ export default function SuratDetailPage() {
   );
 
   const internalFields = surat.internal_fields || {};
-  const internalFieldEntries = Object.entries(internalFields).filter(([, value]) => String(value || '').trim());
+  const HIDDEN_INTERNAL_FIELDS = new Set(['nama', 'nim']);
+  const internalFieldEntries = Object.entries(internalFields).filter(
+    ([key, value]) => !HIDDEN_INTERNAL_FIELDS.has(key) && String(value || '').trim()
+  );
   const dateStr = surat.created_at ? new Date(surat.created_at).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' }) : 'Tanggal tidak tersedia';
   
   // Kode dokumen: ambil dari ID surat sesuai format database (YYYY/ID padded)
@@ -220,7 +234,7 @@ export default function SuratDetailPage() {
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
           <div className="max-w-3xl">
             <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Pengajuan &middot; {kodeSurat}</p>
-            <h1 className="text-4xl font-serif text-primary mb-2">
+            <h1 className="text-3xl sm:text-4xl font-serif text-primary mb-2">
               {surat.jenis}
             </h1>
             <p className="text-xl font-serif italic text-primary/70 mb-4">
@@ -242,16 +256,9 @@ export default function SuratDetailPage() {
             {/* Unduh PDF button */}
             {(surat.pdf_path || surat.file_path) && (
               <button
-                onClick={() => {
-                  const token = localStorage.getItem('token') || '';
-                  const url = `${getApiBaseUrl()}/api/surat/${surat.id}/pdf?token=${encodeURIComponent(token)}`;
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = `surat-${surat.id}.pdf`;
-                  link.target = '_blank';
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
+                onClick={async () => {
+                  try { await downloadSuratPdf(surat.id); }
+                  catch { toast.error('Gagal mengunduh PDF'); }
                 }}
                 className="flex items-center gap-1.5 text-xs text-primary border border-sepia-200 hover:border-primary bg-white px-3 py-2 rounded-sm transition-colors mt-1"
               >
@@ -388,13 +395,29 @@ export default function SuratDetailPage() {
                 <span className="text-[10px] tracking-widest text-primary/50 uppercase">PDF</span>
               </div>
               <div className="p-0">
-                <iframe
-                  src={`${getApiBaseUrl()}/api/surat/${surat.id}/pdf?token=${encodeURIComponent(localStorage.getItem('token') || '')}`}
-                  title={`Pratinjau Dokumen Surat #${surat.id}`}
-                  className="w-full border-0"
-                  style={{ height: '700px' }}
-                  allow="fullscreen"
-                />
+                {pdfError ? (
+                  <div className="flex flex-col items-center justify-center gap-4 py-12 px-6 text-center">
+                    <p className="text-sm text-primary/60">PDF tidak dapat dimuat di pratinjau.</p>
+                    <button
+                      onClick={async () => {
+                        try { await downloadSuratPdf(surat.id); }
+                        catch { toast.error('Gagal mengunduh PDF'); }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 text-sm border border-sepia-200 text-primary hover:border-primary bg-ivory rounded-sm transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                      Unduh Langsung
+                    </button>
+                  </div>
+                ) : (
+                  <iframe
+                    src={pdfBlobUrl || ''}
+                    title={`Pratinjau Dokumen Surat #${surat.id}`}
+                    className="w-full rounded-sm border border-sepia-200"
+                    style={{ height: 'min(80vh, 700px)', minHeight: '400px' }}
+                    allow="fullscreen"
+                  />
+                )}
               </div>
             </div>
           )}
@@ -474,7 +497,7 @@ export default function SuratDetailPage() {
 
         {/* Right Column - Timeline */}
         <div className="lg:col-span-1">
-          <div className="bg-ivory border border-sepia-200 rounded-sm sticky top-28">
+          <div className="bg-ivory border border-sepia-200 rounded-sm lg:sticky lg:top-24">
             {/* Header: split menjadi 2 baris agar tidak nabrak */}
             <div className="p-6 border-b border-sepia-200">
               <div className="flex justify-between items-start gap-2">

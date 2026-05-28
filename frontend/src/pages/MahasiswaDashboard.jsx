@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import TableSkeleton from '../components/TableSkeleton';
 import EmptyState from '../components/EmptyState';
@@ -10,7 +11,7 @@ import { SURAT_FILTERS,
   SURAT_STATUS_COLORS,
   SURAT_STATUS_LABELS,
 } from '../constants/suratStatus';
-import { getApiBaseUrl } from '../utils/apiBaseUrl';
+import { downloadSuratPdf } from '../utils/pdf';
 
 export default function MahasiswaDashboard() {
   const fetchLetters = useCallback(() => {
@@ -88,7 +89,7 @@ export default function MahasiswaDashboard() {
         <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Arsip &middot; Pengajuan Saya</p>
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
           <div className="max-w-2xl">
-            <h1 className="text-4xl font-serif text-primary mb-3">
+            <h1 className="text-3xl sm:text-4xl font-serif text-primary mb-3">
               Riwayat <span className="italic">surat Anda.</span>
             </h1>
             <p className="text-sm text-primary/70 leading-relaxed">
@@ -109,22 +110,22 @@ export default function MahasiswaDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-sepia-200 rounded-sm bg-white mb-12">
-        <div className="p-8 border-b md:border-b-0 md:border-r border-sepia-200 relative">
-          <div className="absolute top-8 right-8 w-1.5 h-1.5 rounded-full bg-primary/30"></div>
+        <div className="p-5 sm:p-8 border-b md:border-b-0 md:border-r border-sepia-200 relative">
+          <div className="absolute top-5 right-5 sm:top-8 sm:right-8 w-1.5 h-1.5 rounded-full bg-primary/30"></div>
           <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Menunggu Persetujuan</p>
           <p className="text-5xl font-serif text-primary">
             {String(stats.menunggu).padStart(2, '0')}<span className="text-sm font-sans text-primary/50 ml-2">surat</span>
           </p>
         </div>
-        <div className="p-8 border-b md:border-b-0 md:border-r border-sepia-200 relative">
-          <div className="absolute top-8 right-8 w-1.5 h-1.5 rounded-full bg-green-700"></div>
+        <div className="p-5 sm:p-8 border-b md:border-b-0 md:border-r border-sepia-200 relative">
+          <div className="absolute top-5 right-5 sm:top-8 sm:right-8 w-1.5 h-1.5 rounded-full bg-green-700"></div>
           <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Selesai</p>
           <p className="text-5xl font-serif text-primary">
             {String(stats.selesai).padStart(2, '0')}<span className="text-sm font-sans text-primary/50 ml-2">surat</span>
           </p>
         </div>
-        <div className="p-8 relative">
-          <div className="absolute top-8 right-8 w-1.5 h-1.5 rounded-full bg-red-700"></div>
+        <div className="p-5 sm:p-8 relative">
+          <div className="absolute top-5 right-5 sm:top-8 sm:right-8 w-1.5 h-1.5 rounded-full bg-red-700"></div>
           <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Ditolak</p>
           <p className="text-5xl font-serif text-primary">
             {String(stats.ditolak).padStart(2, '0')}<span className="text-sm font-sans text-primary/50 ml-2">surat</span>
@@ -207,17 +208,7 @@ export default function MahasiswaDashboard() {
                     </td>
                     <td className="py-5 px-6 text-right">
                       <div className="flex justify-end gap-2">
-                          <button onClick={() => {
-                            const token = localStorage.getItem('token') || '';
-                            const url = `${getApiBaseUrl()}/api/surat/${s.id}/pdf?token=${encodeURIComponent(token)}`;
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = `surat-${s.id}.pdf`;
-                            link.target = '_blank';
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }} className="text-xs font-medium px-4 py-1.5 border border-sepia-200 text-primary hover:border-primary transition-colors rounded-sm bg-ivory group-hover:bg-white flex items-center gap-1">
+                          <button onClick={async () => { try { await downloadSuratPdf(s.id); } catch { toast.error('Gagal mengunduh PDF'); } }} className="text-xs font-medium px-4 py-1.5 border border-sepia-200 text-primary hover:border-primary transition-colors rounded-sm bg-ivory group-hover:bg-white flex items-center gap-1">
                             Unduh PDF
                           </button>
                         <Link to={`/surat/${s.id}`} className="text-xs font-medium px-4 py-1.5 bg-primary text-white hover:bg-primary-dark transition-colors rounded-sm">
@@ -261,17 +252,7 @@ export default function MahasiswaDashboard() {
                 </p>
 
                 <div className="flex justify-end gap-2 mt-2">
-                  <button onClick={() => {
-                    const token = localStorage.getItem('token') || '';
-                    const url = `${getApiBaseUrl()}/api/surat/${s.id}/pdf?token=${encodeURIComponent(token)}`;
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `surat-${s.id}.pdf`;
-                    link.target = '_blank';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }} className="flex-1 justify-center text-xs font-medium px-4 py-2 border border-sepia-200 text-primary hover:border-primary transition-colors rounded-sm bg-ivory flex items-center gap-1">
+                  <button onClick={async () => { try { await downloadSuratPdf(s.id); } catch { toast.error('Gagal mengunduh PDF'); } }} className="flex-1 justify-center text-xs font-medium px-4 py-2 border border-sepia-200 text-primary hover:border-primary transition-colors rounded-sm bg-ivory flex items-center gap-1">
                     Unduh PDF
                   </button>
                   <Link to={`/surat/${s.id}`} className="flex-1 text-center text-xs font-medium px-4 py-2 bg-primary text-white hover:bg-primary-dark transition-colors rounded-sm flex items-center justify-center">

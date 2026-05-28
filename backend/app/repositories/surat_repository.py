@@ -89,13 +89,13 @@ class SuratRepository:
     def get_by_mahasiswa_id(self, mahasiswa_id: int, skip: int = 0, limit: int = 100) -> Tuple[List[Surat], int]:
         query = self.db.query(SuratModel).filter(SuratModel.mahasiswa_id == mahasiswa_id)
         total = query.count()
-        models = query.offset(skip).limit(limit).all()
+        models = query.order_by(SuratModel.created_at.desc()).offset(skip).limit(limit).all()
         return [self._to_domain(m) for m in models], total
 
     def get_by_status(self, status: SuratStatus, skip: int = 0, limit: int = 100) -> Tuple[List[Surat], int]:
         query = self.db.query(SuratModel).filter(SuratModel.status == status)
         total = query.count()
-        models = query.offset(skip).limit(limit).all()
+        models = query.order_by(SuratModel.created_at.desc()).offset(skip).limit(limit).all()
         return [self._to_domain(m) for m in models], total
 
     def get_by_document_hash(self, document_hash: str) -> Optional[Surat]:
@@ -108,7 +108,7 @@ class SuratRepository:
     def get_all(self, skip: int = 0, limit: int = 100) -> Tuple[List[Surat], int]:
         query = self.db.query(SuratModel)
         total = query.count()
-        models = query.offset(skip).limit(limit).all()
+        models = query.order_by(SuratModel.created_at.desc()).offset(skip).limit(limit).all()
         return [self._to_domain(m) for m in models], total
 
     def update(self, surat: Surat) -> Surat:
@@ -127,3 +127,18 @@ class SuratRepository:
             self.db.commit()
             return True
         return False
+
+    def get_is_sequential(self, surat_id: int) -> bool:
+        row = self.db.query(SuratModel.is_sequential).filter(SuratModel.id == surat_id).first()
+        return bool(row and row[0])
+
+    def get_sequential_ids(self, surat_ids: set) -> set:
+        """Return the subset of surat_ids where is_sequential is True."""
+        if not surat_ids:
+            return set()
+        rows = (
+            self.db.query(SuratModel.id)
+            .filter(SuratModel.id.in_(surat_ids), SuratModel.is_sequential == True)
+            .all()
+        )
+        return {row[0] for row in rows}

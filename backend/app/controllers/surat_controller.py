@@ -172,29 +172,7 @@ def get_all_surat(
 
 @router.get("/public/stats")
 def get_public_stats(db: Session = Depends(get_db)):
-    from app.models.surat import SuratModel
-    from app.models.signature import SignatureModel
-    from sqlalchemy import func
-
-    completed_letters = db.query(SuratModel).filter(SuratModel.status == "SELESAI").all()
-    dokumen_terbit = len(completed_letters)
-
-    tanda_tangan = db.query(func.count(SignatureModel.id)).filter(SignatureModel.signed_at.isnot(None)).scalar() or 0
-
-    avg_hours = 0.0
-    if dokumen_terbit > 0:
-        total_seconds = sum(
-            (letter.updated_at - letter.created_at).total_seconds()
-            for letter in completed_letters
-            if letter.updated_at and letter.created_at
-        )
-        avg_hours = round((total_seconds / dokumen_terbit) / 3600, 1)
-
-    return {
-        "dokumen_terbit": dokumen_terbit,
-        "tanda_tangan": tanda_tangan,
-        "rata_rata_jam": avg_hours,
-    }
+    return SuratService(db).get_public_stats()
 
 
 @router.get("/{surat_id}", response_model=SuratResponse)

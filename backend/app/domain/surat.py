@@ -59,12 +59,22 @@ class Surat:
         """Return *True* if *new_status* is a valid next state."""
         return new_status in _VALID_TRANSITIONS.get(self.status, set())
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, '_status_locked', True)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == 'status' and getattr(self, '_status_locked', False):
+            raise AttributeError(
+                "Status wajib diubah melalui metode bisnis: submit(), approve(), reject(), atau advance_to_admin()"
+            )
+        super().__setattr__(name, value)
+
     def _transition_to(self, new_status: SuratStatus) -> None:
         if not self.can_transition_to(new_status):
             raise InvalidStateTransitionError(
                 f"Tidak dapat mengubah status dari {self.status.value} ke {new_status.value}"
             )
-        self.status = new_status
+        object.__setattr__(self, 'status', new_status)
 
     # ------------------------------------------------------------------
     # Business actions

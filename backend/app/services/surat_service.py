@@ -1,4 +1,3 @@
-import os
 import uuid
 import logging
 from typing import List, Optional, Dict, Any
@@ -7,7 +6,6 @@ from pypdf import PdfReader
 from sqlalchemy.orm import Session
 
 from app.domain.enums import SuratStatus, UserRole
-from app.models.surat import SuratModel
 
 logger = logging.getLogger(__name__)
 from app.domain.exceptions import (
@@ -80,6 +78,12 @@ class SuratService:
         if not mahasiswa:
             raise EntityNotFoundError("Mahasiswa tidak ditemukan")
 
+        if jenis == "Surat Pembatalan Mata Kuliah" and not mahasiswa.signature_image_path:
+            raise ValidationError(
+                "Tanda tangan mahasiswa belum disimpan. "
+                "Upload tanda tangan di menu Profil Tanda Tangan terlebih dahulu."
+            )
+
         enriched_fields = {
             "nama": mahasiswa.name,
             "nim": mahasiswa.nim or "-",
@@ -90,21 +94,21 @@ class SuratService:
         unique_id = uuid.uuid4().hex[:8]
         safe_jenis = jenis.replace(" ", "_")
         filename = f"surat_{safe_jenis}_{mahasiswa_id}_{unique_id}.pdf"
-        pdf_path = PDFGenerator.generate_from_template(
+        pdf_path = PDFGenerator().generate_from_template(
             jenis,
             enriched_fields,
             filename,
             signature_path=mahasiswa.signature_image_path,
         )
 
-        # Build domain entity
         surat = Surat(
             mahasiswa_id=mahasiswa_id,
             jenis=jenis,
             keperluan=keperluan,
             is_external=False,
             pdf_path=pdf_path,
-            internal_fields=fields,
+            internal_fields=enriched_fields,
+            is_sequential=(jenis == "Surat Pembatalan Mata Kuliah"),
         )
 
         # Auto-submit if lecturers are provided
@@ -113,14 +117,8 @@ class SuratService:
 
         surat = self.surat_repo.create(surat)
 
-        # Apply specific logic for Pembatalan Mata Kuliah
+        # Specific signature logic for Pembatalan Mata Kuliah
         if jenis == "Surat Pembatalan Mata Kuliah":
-            surat_model = self.db.query(SuratModel).filter(SuratModel.id == surat.id).first()
-            if surat_model:
-                surat_model.is_sequential = True
-                self.db.commit()
-
-            # Create Mahasiswa Signature
             sig_mhs = Signature(
                 surat_id=surat.id,
                 owner_id=mahasiswa_id,
@@ -132,10 +130,12 @@ class SuratService:
                 pos_height=80.0,
                 signing_order=0,
             )
-            # Instantly sign for Mahasiswa
-            sig_hash = HashGenerator.generate_hash(f"{surat.id}:{mahasiswa_id}:MAHASISWA")
+            sig_mhs = self.signature_repo.create(sig_mhs)
+            sig_hash = HashGenerator.generate_hash(
+                f"{surat.id}:{mahasiswa_id}:{sig_mhs.id}:MAHASISWA"
+            )
             sig_mhs.sign(mahasiswa.signature_image_path, sig_hash)
-            self.signature_repo.create(sig_mhs)
+            self.signature_repo.update(sig_mhs)
 
             if lecturer_ids and len(lecturer_ids) >= 2:
                 # Dosen Pembimbing
@@ -202,6 +202,7 @@ class SuratService:
             keperluan=keperluan,
             is_external=True,
             file_path=file_path,
+            is_sequential=is_sequential,
         )
 
         has_signers = bool(signer_configs) or bool(lecturer_ids)
@@ -209,13 +210,6 @@ class SuratService:
             surat.submit(has_lecturer_signatures=True)
 
         surat = self.surat_repo.create(surat)
-
-        # Update is_sequential flag directly on the DB model
-        if is_sequential and surat.id:
-            db_model = self.db.query(SuratModel).filter(SuratModel.id == surat.id).first()
-            if db_model:
-                db_model.is_sequential = is_sequential
-                self.db.commit()
 
         # Create signature records from rich signer_configs
         if signer_configs:
@@ -238,19 +232,25 @@ class SuratService:
                     pos_width=cfg.get("pos_width"),
                     pos_height=cfg.get("pos_height"),
                     owner_email=cfg.get("owner_email") or user.email,
+                    rendered_width=cfg.get("rendered_width"),
                 )
 
                 # Auto-sign if this signer is the mahasiswa who created the letter
                 if user_id == mahasiswa_id:
+                    if not user.signature_image_path:
+                        from app.domain.exceptions import ValidationError
+                        raise ValidationError(
+                            "Tanda tangan mahasiswa belum disimpan. "
+                            "Upload tanda tangan di menu Profil Tanda Tangan terlebih dahulu."
+                        )
+                    sig = self.signature_repo.create(sig)
                     sig_hash = HashGenerator.generate_hash(
-                        f"{surat.id}:{mahasiswa_id}:{role.value}"
+                        f"{surat.id}:{mahasiswa_id}:{sig.id}:{role.value}"
                     )
-                    sig.sign(
-                        user.signature_image_path or "",
-                        sig_hash,
-                    )
-
-                self.signature_repo.create(sig)
+                    sig.sign(user.signature_image_path, sig_hash)
+                    self.signature_repo.update(sig)
+                else:
+                    self.signature_repo.create(sig)
         elif lecturer_ids:
             # Legacy support
             for lid in lecturer_ids:
@@ -367,8 +367,7 @@ class SuratService:
                 raise UnauthorizedError("Surat ini bukan pending tanda tangan Anda")
 
             # Enforce sequential order for rejection too
-            surat_model = self.db.query(SuratModel).filter(SuratModel.id == surat_id).first()
-            if surat_model and surat_model.is_sequential:
+            if self.surat_repo.get_is_sequential(surat_id):
                 next_signers = self.signature_repo.get_next_to_sign(surat_id, True)
                 if not any(s.owner_id == actor_id for s in next_signers):
                     raise InvalidStateTransitionError(
@@ -414,6 +413,35 @@ class SuratService:
 
     def get_all_surat(self, skip: int = 0, limit: int = 100) -> tuple[List[Surat], int]:
         return self.surat_repo.get_all(skip, limit)
+
+    def get_public_stats(self) -> dict:
+        from app.models.surat import SuratModel
+        from app.models.signature import SignatureModel
+        from sqlalchemy import func
+
+        completed = self.db.query(SuratModel).filter(SuratModel.status == SuratStatus.SELESAI.value).all()
+        dokumen_terbit = len(completed)
+
+        tanda_tangan = (
+            self.db.query(func.count(SignatureModel.id))
+            .filter(SignatureModel.signed_at.isnot(None))
+            .scalar() or 0
+        )
+
+        avg_hours = 0.0
+        if dokumen_terbit > 0:
+            total_seconds = sum(
+                (letter.updated_at - letter.created_at).total_seconds()
+                for letter in completed
+                if letter.updated_at and letter.created_at
+            )
+            avg_hours = round((total_seconds / dokumen_terbit) / 3600, 1)
+
+        return {
+            "dokumen_terbit": dokumen_terbit,
+            "tanda_tangan": tanda_tangan,
+            "rata_rata_jam": avg_hours,
+        }
 
     # ------------------------------------------------------------------
     # Internal helpers
