@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Upload, FileText, Users, PenTool, ChevronRight, ChevronLeft, X, Check, Trash2, Search, UserPlus, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useDropzone } from 'react-dropzone';
 import api from '../api';
 import { getErrorMessage } from '../utils/error';
 
@@ -57,31 +56,42 @@ function StepIndicator({ current }) {
 
 /* ─────────────────────── Step 1: Upload ─────────────────────── */
 function StepUpload({ file, setFile, jenis, setJenis, keperluan, setKeperluan, onNext }) {
-  const onDrop = useCallback((accepted) => {
-    if (accepted.length > 0) setFile(accepted[0]);
-  }, [setFile]);
+  const inputRef = useRef(null);
+  const [isDragActive, setIsDragActive] = useState(false);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
-    maxSize: 10 * 1024 * 1024,
-    multiple: false,
-    onDropRejected: (rej) => {
-      const msg = rej[0]?.errors?.[0]?.message || 'File tidak valid';
-      toast.error(msg);
-    },
-  });
+  const handleFile = (f) => {
+    if (!f) return;
+    if (f.type !== 'application/pdf') { toast.error('Hanya file PDF yang diizinkan'); return; }
+    if (f.size > 10 * 1024 * 1024) { toast.error('Ukuran file melebihi 10 MB'); return; }
+    setFile(f);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleFile(f);
+  };
 
   const canProceed = file && jenis.trim() && keperluan.trim();
 
   return (
     <div className="space-y-8">
-      {/* Dropzone */}
+      {/* Drop zone */}
       <div
-        {...getRootProps()}
-        className={`relative border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${isDragActive ? 'border-primary bg-primary/5 scale-[1.01]' : file ? 'border-primary/30 bg-primary/[0.02]' : 'border-sepia-200 hover:border-primary/40 hover:bg-ivory-dark/30'}`}
+        onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
+        onDragLeave={() => setIsDragActive(false)}
+        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+        className={`relative border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${isDragActive ? 'border-primary bg-primary/5' : file ? 'border-primary/30 bg-primary/[0.02]' : 'border-sepia-200 hover:border-primary/40 hover:bg-ivory-dark/30'}`}
       >
-        <input {...getInputProps()} />
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+        />
         {file ? (
           <div className="flex flex-col items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center"><FileText size={28} className="text-primary" /></div>
