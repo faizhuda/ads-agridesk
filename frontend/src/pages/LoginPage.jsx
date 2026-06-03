@@ -26,8 +26,12 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    if (!email.endsWith('@apps.ipb.ac.id')) {
-      const errorMsg = 'Silakan gunakan email institusi IPB yang valid (@apps.ipb.ac.id) untuk masuk.';
+    const emailLower = email.toLowerCase();
+    const isIpbEmail = emailLower.endsWith('@apps.ipb.ac.id') || 
+                      emailLower.endsWith('@staf.ipb.ac.id') || 
+                      emailLower.endsWith('@ipb.ac.id');
+    if (!isIpbEmail) {
+      const errorMsg = 'Silakan gunakan email institusi IPB yang valid (@apps.ipb.ac.id, @staf.ipb.ac.id, atau @ipb.ac.id) untuk masuk.';
       setError(errorMsg);
       toast.error('Domain email tidak valid!');
       return;

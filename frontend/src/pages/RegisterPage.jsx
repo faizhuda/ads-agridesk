@@ -69,8 +69,12 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
 
-    if (!form.email.endsWith('@apps.ipb.ac.id')) {
-      const errorMsg = 'Pendaftaran hanya diperbolehkan menggunakan email institusi IPB (@apps.ipb.ac.id).';
+    const emailLower = form.email.toLowerCase();
+    const isIpbEmail = emailLower.endsWith('@apps.ipb.ac.id') || 
+                      emailLower.endsWith('@staf.ipb.ac.id') || 
+                      emailLower.endsWith('@ipb.ac.id');
+    if (!isIpbEmail) {
+      const errorMsg = 'Pendaftaran hanya diperbolehkan menggunakan email institusi IPB (@apps.ipb.ac.id, @staf.ipb.ac.id, atau @ipb.ac.id).';
       setError(errorMsg);
       toast.error('Domain email tidak valid!');
       return;

@@ -62,22 +62,11 @@ def _sanitize_prefix(prefix: str) -> str:
     return safe or "file"
 
 
-def _safe_subdir(subdir: str) -> str:
-    base_dir = os.path.abspath(settings.UPLOAD_DIR)
-    target_dir = os.path.abspath(os.path.join(base_dir, subdir))
-    if target_dir != base_dir and not target_dir.startswith(base_dir + os.sep):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Direktori upload tidak valid",
-        )
-    return os.path.relpath(target_dir, base_dir)
-
-
 def _safe_filename(prefix: str, ext: str) -> str:
     return f"{_sanitize_prefix(prefix)}_{uuid.uuid4().hex}{ext}"
 
 
-def save_pdf_upload(file: UploadFile, prefix: str, subdir: str = "external") -> str:
+def save_pdf_upload(file: UploadFile, prefix: str) -> str:
     data = _validate_upload(file, ALLOWED_PDF_EXTENSIONS, ALLOWED_PDF_MIMES, MAX_PDF_SIZE)
     ext = _get_extension(file.filename)
     filename = _safe_filename(prefix, ext)

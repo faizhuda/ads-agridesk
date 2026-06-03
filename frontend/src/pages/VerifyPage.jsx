@@ -39,13 +39,21 @@ export default function VerifyPage() {
 
   useEffect(() => {
     if (urlHash) {
+      setHash(urlHash);
       performVerification(urlHash);
+    } else {
+      setHash('');
+      setResult(null);
+      setSearched(false);
     }
   }, [urlHash, location.pathname, performVerification]);
 
-  const handleVerify = async (e) => {
+  const handleVerify = (e) => {
     e.preventDefault();
-    performVerification(hash);
+    const trimmed = hash.trim().replace(/^SHA256:\s*/i, '').replace(/\s/g, '');
+    if (trimmed) {
+      navigate(isSigRoute ? `/verify-sig/${trimmed}` : `/verify/${trimmed}`);
+    }
   };
 
   const handleTabChange = (type) => {
@@ -140,8 +148,14 @@ export default function VerifyPage() {
               <div className="px-6 py-5 flex items-center gap-4 bg-emerald-50 border-b border-emerald-200">
                 <ShieldCheck size={36} className="text-emerald-600 shrink-0" />
                 <div>
-                  <h2 className="text-xl font-serif font-semibold text-emerald-800">Dokumen Terverifikasi Resmi</h2>
-                  <p className="text-sm mt-0.5 text-emerald-600">Keaslian dan integritas dokumen resmi ini terkonfirmasi penuh oleh sistem Agridesk.</p>
+                  <h2 className="text-xl font-serif font-semibold text-emerald-800">
+                    {isSigRoute ? 'Tanda Tangan Terverifikasi' : 'Dokumen Terverifikasi Resmi'}
+                  </h2>
+                  <p className="text-sm mt-0.5 text-emerald-600">
+                    {isSigRoute
+                      ? 'Keaslian tanda tangan digital ini terkonfirmasi sah dan terhubung dengan dokumen resmi di sistem Agridesk.'
+                      : 'Keaslian dan integritas dokumen resmi ini terkonfirmasi penuh oleh sistem Agridesk.'}
+                  </p>
                 </div>
               </div>
             )}
@@ -150,8 +164,14 @@ export default function VerifyPage() {
               <div className="px-6 py-5 flex items-center gap-4 bg-amber-50 border-b border-amber-200">
                 <AlertTriangle size={36} className="text-amber-600 shrink-0" />
                 <div>
-                  <h2 className="text-xl font-serif font-semibold text-amber-800">Tanda Tangan Valid (Dokumen Draf)</h2>
-                  <p className="text-sm mt-0.5 text-amber-600">Tanda tangan digital valid, namun dokumen ini masih berstatus DRAF / dalam proses pengajuan dan belum diterbitkan resmi.</p>
+                  <h2 className="text-xl font-serif font-semibold text-amber-800">
+                    {isSigRoute ? 'Tanda Tangan Valid (Draf)' : 'Tanda Tangan Valid (Dokumen Draf)'}
+                  </h2>
+                  <p className="text-sm mt-0.5 text-amber-600">
+                    {isSigRoute
+                      ? 'Tanda tangan digital valid, namun dokumen terkait masih berstatus DRAF / dalam proses pengajuan.'
+                      : 'Tanda tangan digital valid, namun dokumen ini masih berstatus DRAF / dalam proses pengajuan dan belum diterbitkan resmi.'}
+                  </p>
                 </div>
               </div>
             )}
@@ -160,8 +180,14 @@ export default function VerifyPage() {
               <div className="px-6 py-5 flex items-center gap-4 bg-red-50 border-b border-red-200">
                 <XCircle size={36} className="text-red-600 shrink-0" />
                 <div>
-                  <h2 className="text-xl font-serif font-semibold text-red-800">Dokumen Ditolak / Dibatalkan</h2>
-                  <p className="text-sm mt-0.5 text-red-600">Pengajuan dokumen ini telah resmi ditolak atau dibatalkan oleh pihak administrasi Departemen.</p>
+                  <h2 className="text-xl font-serif font-semibold text-red-800">
+                    {isSigRoute ? 'Tanda Tangan Dibatalkan' : 'Dokumen Ditolak / Dibatalkan'}
+                  </h2>
+                  <p className="text-sm mt-0.5 text-red-600">
+                    {isSigRoute
+                      ? 'Tanda tangan digital ini dibatalkan karena dokumen terkait telah ditolak oleh Departemen.'
+                      : 'Pengajuan dokumen ini telah resmi ditolak atau dibatalkan oleh pihak administrasi Departemen.'}
+                  </p>
                 </div>
               </div>
             )}
@@ -170,8 +196,14 @@ export default function VerifyPage() {
               <div className="px-6 py-5 flex items-center gap-4 bg-red-50 border-b border-red-200">
                 <ShieldX size={36} className="text-red-600 shrink-0" />
                 <div>
-                  <h2 className="text-xl font-serif font-semibold text-red-800">Dokumen Tidak Valid</h2>
-                  <p className="text-sm mt-0.5 text-red-600">Hash tidak ditemukan, tanda tangan tidak valid, atau kode verifikasi salah.</p>
+                  <h2 className="text-xl font-serif font-semibold text-red-800">
+                    {isSigRoute ? 'Tanda Tangan Tidak Valid' : 'Dokumen Tidak Valid'}
+                  </h2>
+                  <p className="text-sm mt-0.5 text-red-600">
+                    {isSigRoute
+                      ? 'Hash tanda tangan tidak ditemukan, atau tanda tangan tidak valid.'
+                      : 'Hash dokumen tidak ditemukan, atau dokumen tidak valid.'}
+                  </p>
                 </div>
               </div>
             )}
