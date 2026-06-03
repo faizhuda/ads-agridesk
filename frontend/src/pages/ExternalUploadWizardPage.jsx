@@ -1,17 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Upload, FileText, Users, PenTool, ChevronRight, ChevronLeft, X, Check, Trash2, Search, UserPlus, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useDropzone } from 'react-dropzone';
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
 import api from '../api';
 import { getErrorMessage } from '../utils/error';
 import { SIGNER_COLORS } from '../constants/signerColors';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Lazy load PDF viewer in its own chunk to isolate pdfjs-dist TDZ crash
+const PdfPageViewer = lazy(() => import('../components/PdfPageViewer'));
 
 const STEPS = [
   { key: 'upload', label: 'Upload Dokumen', icon: Upload },
@@ -43,31 +40,42 @@ function StepIndicator({ current }) {
 
 /* ─────────────────────── Step 1: Upload ─────────────────────── */
 function StepUpload({ file, setFile, jenis, setJenis, keperluan, setKeperluan, onNext }) {
-  const onDrop = useCallback((accepted) => {
-    if (accepted.length > 0) setFile(accepted[0]);
-  }, [setFile]);
+  const inputRef = useRef(null);
+  const [isDragActive, setIsDragActive] = useState(false);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
-    maxSize: 10 * 1024 * 1024,
-    multiple: false,
-    onDropRejected: (rej) => {
-      const msg = rej[0]?.errors?.[0]?.message || 'File tidak valid';
-      toast.error(msg);
-    },
-  });
+  const handleFile = (f) => {
+    if (!f) return;
+    if (f.type !== 'application/pdf') { toast.error('Hanya file PDF yang diizinkan'); return; }
+    if (f.size > 10 * 1024 * 1024) { toast.error('Ukuran file melebihi 10 MB'); return; }
+    setFile(f);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleFile(f);
+  };
 
   const canProceed = file && jenis.trim() && keperluan.trim();
 
   return (
     <div className="space-y-8">
-      {/* Dropzone */}
+      {/* Drop zone */}
       <div
-        {...getRootProps()}
-        className={`relative border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${isDragActive ? 'border-primary bg-primary/5 scale-[1.01]' : file ? 'border-primary/30 bg-primary/[0.02]' : 'border-sepia-200 hover:border-primary/40 hover:bg-ivory-dark/30'}`}
+        onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
+        onDragLeave={() => setIsDragActive(false)}
+        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+        className={`relative border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${isDragActive ? 'border-primary bg-primary/5' : file ? 'border-primary/30 bg-primary/[0.02]' : 'border-sepia-200 hover:border-primary/40 hover:bg-ivory-dark/30'}`}
       >
-        <input {...getInputProps()} />
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+        />
         {file ? (
           <div className="flex flex-col items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center"><FileText size={28} className="text-primary" /></div>
@@ -251,6 +259,9 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
   const fileUrlRef = useRef(null);
   let fieldCounter = useRef(0);
 
+  // pdfWidth must be declared before the useEffect that references it
+  const pdfWidth = Math.min(containerWidth - 32, 700);
+
   // Mouse/Touch move/up for drag & resize
   useEffect(() => {
     if (!dragging && !resizing) return;
@@ -296,7 +307,7 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
       window.removeEventListener('mouseup', handleMouseUp); 
       window.removeEventListener('touchend', handleMouseUp);
     };
-  }, [dragging, resizing, pdfWidth]);
+  }, [dragging, resizing]);
 
   useEffect(() => {
     if (fileUrlRef.current) { URL.revokeObjectURL(fileUrlRef.current); fileUrlRef.current = null; }
@@ -311,8 +322,6 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
-
-  const pdfWidth = Math.min(containerWidth - 32, 700);
 
   const addField = (signer) => {
     fieldCounter.current += 1;
@@ -381,9 +390,14 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
         <div className="flex justify-center p-4">
           <div className="relative" style={{ width: pdfWidth }}>
             {fileUrl && (
-              <Document file={fileUrl} onLoadSuccess={({ numPages: n }) => setNumPages(n)} loading={<div className="flex items-center justify-center h-96 text-sm text-primary/40">Memuat PDF...</div>}>
-                <Page pageNumber={currentPage} width={pdfWidth} renderAnnotationLayer={false} renderTextLayer={false} />
-              </Document>
+              <Suspense fallback={<div className="flex items-center justify-center h-96 text-sm text-primary/40">Memuat PDF...</div>}>
+                <PdfPageViewer
+                  file={fileUrl}
+                  currentPage={currentPage}
+                  width={pdfWidth}
+                  onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+                />
+              </Suspense>
             )}
             {/* Signature fields overlay */}
             {fields.filter((f) => f.page_number === currentPage).map((f) => (

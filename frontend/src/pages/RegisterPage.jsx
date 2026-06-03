@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils/error';
-import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { ChevronDown } from 'lucide-react';
 
@@ -23,19 +22,10 @@ function CustomFormDropdown({ value, onChange, placeholder, options }) {
         <ChevronDown size={16} className={`text-primary/60 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      <AnimatePresence>
-        {isOpen && (
+      {isOpen && (
           <>
-            {/* Click outside backdrop */}
             <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-            
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15 }}
-              className="absolute left-0 right-0 mt-1.5 bg-white border border-sepia-200 rounded-sm shadow-lg max-h-60 overflow-y-auto z-20"
-            >
+            <div className="absolute left-0 right-0 mt-1.5 bg-white border border-sepia-200 rounded-sm shadow-lg max-h-60 overflow-y-auto z-20">
               <ul className="py-1">
                 {options.map((option) => (
                   <li key={option.value}>
@@ -59,10 +49,9 @@ function CustomFormDropdown({ value, onChange, placeholder, options }) {
                   </li>
                 ))}
               </ul>
-            </motion.div>
+            </div>
           </>
         )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -102,12 +91,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="min-h-screen flex flex-col bg-ivory text-primary font-sans"
-    >
+    <div className="min-h-screen flex flex-col bg-ivory text-primary font-sans">
       {/* Header Panel */}
       <header className="flex justify-between items-center p-6 lg:px-12 border-b border-sepia-200">
         <div className="flex items-center gap-3">
@@ -264,6 +248,6 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

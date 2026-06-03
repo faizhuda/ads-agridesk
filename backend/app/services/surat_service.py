@@ -94,11 +94,16 @@ class SuratService:
         unique_id = uuid.uuid4().hex[:8]
         safe_jenis = jenis.replace(" ", "_")
         filename = f"surat_{safe_jenis}_{mahasiswa_id}_{unique_id}.pdf"
+
+        # Pre-generate signature hash so it can be embedded as QR in the PDF
+        pre_sig_hash = HashGenerator.generate_hash(f"pre:{mahasiswa_id}:{unique_id}")
+
         pdf_path = PDFGenerator().generate_from_template(
             jenis,
             enriched_fields,
             filename,
             signature_path=mahasiswa.signature_image_path,
+            signature_hash=pre_sig_hash,
         )
 
         surat = Surat(
@@ -166,7 +171,23 @@ class SuratService:
                 )
                 self.signature_repo.create(sig_kaprodi)
         else:
-            # Fallback for other internal templates
+            # Fallback for other internal templates (e.g. Surat Keterangan Aktif Kuliah)
+            # Create a signature record to make the pre-generated QR hash verifiable.
+            sig_mhs = Signature(
+                surat_id=surat.id,
+                owner_id=mahasiswa_id,
+                role=UserRole.MAHASISWA,
+            )
+            if mahasiswa.signature_image_path:
+                sig_mhs.sign(mahasiswa.signature_image_path, pre_sig_hash)
+            else:
+                # No image yet — store hash directly so QR scanning still resolves.
+                # (QR is already embedded in template PDF; overlay not needed.)
+                from datetime import datetime, timezone
+                sig_mhs.signature_hash = pre_sig_hash
+                sig_mhs.signed_at = datetime.now(timezone.utc)
+            self.signature_repo.create(sig_mhs)
+
             if lecturer_ids:
                 for lid in lecturer_ids:
                     sig = Signature(surat_id=surat.id, owner_id=lid, role=UserRole.DOSEN)

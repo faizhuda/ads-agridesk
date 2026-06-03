@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils/error';
 import api from '../api';
-import { motion } from 'framer-motion';
+import { ShieldCheck, Clock, FileCheck, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
@@ -45,12 +45,7 @@ export default function LoginPage() {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="min-h-screen flex flex-col bg-ivory text-primary font-sans"
-    >
+    <div className="min-h-screen flex flex-col bg-ivory text-primary font-sans">
       {/* Header Panel */}
       <header className="flex justify-between items-center p-6 lg:px-12 border-b border-sepia-200">
         <div className="flex items-center gap-3">
@@ -174,6 +169,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

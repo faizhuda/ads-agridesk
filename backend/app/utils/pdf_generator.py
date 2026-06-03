@@ -82,7 +82,7 @@ class _DrawUtils:
         return height - 4.35 * cm
 
     @staticmethod
-    def _draw_signature_block(pdf_canvas: canvas.Canvas, width: float, y: float, signature_path: Optional[str]) -> None:
+    def _draw_signature_block(pdf_canvas: canvas.Canvas, width: float, y: float, signature_path: Optional[str], signature_hash: Optional[str] = None, owner_name: Optional[str] = None) -> None:
         block_width = 7.2 * cm
         block_height = 4.3 * cm
         block_x = width - 2.15 * cm - block_width
@@ -93,6 +93,37 @@ class _DrawUtils:
         pdf_canvas.setFillColor(colors.HexColor("#184d47"))
         pdf_canvas.setFont("Helvetica-Bold", 9)
         pdf_canvas.drawCentredString(block_x + block_width / 2, block_y + block_height - 0.55 * cm, "Tanda Tangan Mahasiswa")
+
+        # QR code on the left side of the signature block
+        qr_size = 2.0 * cm
+        qr_x = block_x + 0.2 * cm
+        qr_y = block_y + 0.4 * cm
+        if signature_hash:
+            try:
+                from app.utils.storage import storage_service
+                from app.config import settings
+                from reportlab.lib.utils import ImageReader
+                sig_qr_filename = f"sig_qr_{signature_hash[:16]}.png"
+                try:
+                    qr_bytes = storage_service.get_file_content(sig_qr_filename)
+                except FileNotFoundError:
+                    url = f"{settings.BASE_URL}/verify-sig/{signature_hash}"
+                    from app.utils.qr_generator import QRCodeGenerator
+                    saved_key = QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
+                    qr_bytes = storage_service.get_file_content(saved_key)
+                qr_img = ImageReader(BytesIO(qr_bytes))
+                pdf_canvas.drawImage(qr_img, qr_x, qr_y, width=qr_size, height=qr_size, preserveAspectRatio=True, mask="auto")
+                # Label under QR
+                pdf_canvas.setFillColor(colors.HexColor("#6b7280"))
+                pdf_canvas.setFont("Helvetica", 5)
+                pdf_canvas.drawCentredString(qr_x + qr_size / 2, qr_y - 0.25 * cm, "Scan untuk verifikasi")
+            except Exception as e:
+                logger.error(f"Failed to draw QR in signature block: {e}")
+
+        # Signature image — offset right to make room for QR
+        sig_x = block_x + qr_size + 0.5 * cm if signature_hash else block_x + 0.8 * cm
+        sig_width = block_width - (qr_size + 0.7 * cm) if signature_hash else 5.55 * cm
+
         if signature_path:
             try:
                 from app.utils.storage import storage_service
@@ -100,13 +131,9 @@ class _DrawUtils:
                 sig_bytes = storage_service.get_file_content(signature_path)
                 img = ImageReader(BytesIO(sig_bytes))
                 pdf_canvas.drawImage(
-                    img,
-                    block_x + 0.8 * cm,
-                    block_y + 0.55 * cm,
-                    width=5.55 * cm,
-                    height=2.4 * cm,
-                    preserveAspectRatio=True,
-                    mask="auto",
+                    img, sig_x, block_y + 0.55 * cm,
+                    width=sig_width, height=2.4 * cm,
+                    preserveAspectRatio=True, mask="auto",
                 )
             except Exception as e:
                 logger.error(f"Failed to load signature from storage: {e}")
@@ -149,11 +176,12 @@ class TemplatePDFRenderer(ABC, _DrawUtils):
         y: float,
         fields: Dict[str, str],
         signature_path: Optional[str],
+        signature_hash: Optional[str] = None,
     ) -> None:
-        """Draw the footer. Default: mahasiswa signature block."""
-        self._draw_signature_block(pdf_canvas, width, y, signature_path)
+        """Draw the footer. Default: mahasiswa signature block with QR if hash provided."""
+        self._draw_signature_block(pdf_canvas, width, y, signature_path, signature_hash=signature_hash)
 
-    def render(self, fields: Dict[str, str], signature_path: Optional[str], filename: str) -> str:
+    def render(self, fields: Dict[str, str], signature_path: Optional[str], filename: str, signature_hash: Optional[str] = None) -> str:
         """Generate the full PDF and upload it. Returns the storage key."""
         try:
             buffer = BytesIO()
@@ -163,7 +191,7 @@ class TemplatePDFRenderer(ABC, _DrawUtils):
             y = self._draw_header(pdf, width, height, self.template_name)
             y -= 1.0 * cm
             y = self.render_body(pdf, width, y, fields)
-            self.render_footer(pdf, width, y, fields, signature_path)
+            self.render_footer(pdf, width, y, fields, signature_path, signature_hash=signature_hash)
             pdf.save()
 
             from app.utils.storage import storage_service
@@ -298,6 +326,7 @@ class SuratPembatalanMataKuliahRenderer(TemplatePDFRenderer):
         y: float,
         fields: Dict[str, str],
         signature_path: Optional[str],
+        signature_hash: Optional[str] = None,
     ) -> None:
         pdf_canvas.setFont("Helvetica", 10.8)
 
@@ -368,9 +397,10 @@ class PDFGenerator:
         fields: Dict[str, str],
         filename: str,
         signature_path: Optional[str] = None,
+        signature_hash: Optional[str] = None,
     ) -> str:
         renderer = self._renderers.get(template_name) or GenericTemplateRenderer(template_name)
-        return renderer.render(fields, signature_path, filename)
+        return renderer.render(fields, signature_path, filename, signature_hash=signature_hash)
 
     # ------------------------------------------------------------------
     # Static operations — no renderer state needed
@@ -438,7 +468,8 @@ class PDFGenerator:
                     sig_qr_filename = f"sig_qr_{sig.signature_hash[:16]}.png"
                     from app.utils.storage import storage_service
                     try:
-                        storage_service.get_file_content(sig_qr_filename)
+                        sig_qr_key = storage_service.get_file_content(sig_qr_filename)
+                        sig_qr_key = sig_qr_filename  # exists, use as-is
                     except FileNotFoundError:
                         url = (
                             f"{settings.BASE_URL}/verify/{document_hash}"
@@ -446,7 +477,7 @@ class PDFGenerator:
                             else f"{settings.BASE_URL}/verify-sig/{sig.signature_hash}"
                         )
                         from app.utils.qr_generator import QRCodeGenerator
-                        QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
+                        sig_qr_key = QRCodeGenerator.generate_qr_code(url, sig_qr_filename)
 
                     qr_padding = 4 * scale
                     qr_size = pdf_h - (qr_padding * 2)
@@ -455,7 +486,7 @@ class PDFGenerator:
 
                     try:
                         from reportlab.lib.utils import ImageReader
-                        qr_bytes = storage_service.get_file_content(sig_qr_filename)
+                        qr_bytes = storage_service.get_file_content(sig_qr_key)
                         qr_img = ImageReader(BytesIO(qr_bytes))
                         overlay.drawImage(qr_img, qr_x, qr_y, width=qr_size, height=qr_size,
                                           preserveAspectRatio=True, mask="auto")
