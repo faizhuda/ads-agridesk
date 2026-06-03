@@ -43,7 +43,8 @@ class TestSuratRepositoryOrdering:
         s2 = _make_surat(db, student.id, jenis="second")
 
         repo = SuratRepository(db)
-        results = repo.get_by_mahasiswa_id(student.id)
+        results, total = repo.get_by_mahasiswa_id(student.id)
+        assert total == 2
         assert len(results) == 2
         # Most recent first
         assert results[0].id == s2.id
@@ -57,7 +58,7 @@ class TestSuratRepositoryOrdering:
         surat2 = _make_surat(db, s2.id)
 
         repo = SuratRepository(db)
-        results = repo.get_all()
+        results, _ = repo.get_all()
         ids = [r.id for r in results]
         assert ids.index(surat2.id) < ids.index(surat1.id)
 
@@ -68,7 +69,7 @@ class TestSuratRepositoryOrdering:
         s2 = _make_surat(db, student.id)
 
         repo = SuratRepository(db)
-        results = repo.get_by_status(SuratStatus.DRAFT)
+        results, _ = repo.get_by_status(SuratStatus.DRAFT)
         ids = [r.id for r in results]
         assert ids.index(s2.id) < ids.index(s1.id)
 

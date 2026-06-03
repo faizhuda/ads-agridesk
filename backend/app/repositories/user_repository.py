@@ -128,6 +128,9 @@ class UserRepository:
             {"refresh_token_hash": token_hash}
         )
         self.db.commit()
+        # Expire identity map so subsequent get_by_id() fetches fresh data.
+        # Bulk UPDATE bypasses SQLAlchemy's ORM cache.
+        self.db.expire_all()
 
     def delete(self, user_id: int) -> bool:
         model = self.db.query(UserModel).filter(UserModel.id == user_id).first()

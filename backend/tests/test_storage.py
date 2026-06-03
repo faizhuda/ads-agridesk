@@ -54,9 +54,9 @@ class TestPathTraversalGuard:
         svc, upload_dir = storage
         legit = upload_dir / "doc.pdf"
         legit.write_bytes(b"%PDF")
-        # Caller supplies "uploads/doc.pdf" style path
-        full_relative = os.path.join(os.path.basename(str(upload_dir)), "doc.pdf")
-        content = svc.get_file_content(full_relative)
+        # Caller supplies the full upload_dir path as prefix, e.g. "/tmp/.../uploads/doc.pdf"
+        full_path = str(upload_dir / "doc.pdf")
+        content = svc.get_file_content(full_path)
         assert content == b"%PDF"
 
     def test_nonexistent_file_raises_file_not_found(self, storage):

@@ -66,7 +66,7 @@ class TestPDFGeneratorDispatch:
 
         gen.generate_from_template("My Template", {"key": "val"}, "out.pdf")
 
-        mock_renderer.render.assert_called_once_with({"key": "val"}, None, "out.pdf")
+        mock_renderer.render.assert_called_once_with({"key": "val"}, None, "out.pdf", signature_hash=None)
 
     def test_known_template_passes_signature_path(self):
         mock_renderer = self._make_mock_renderer()
@@ -83,7 +83,7 @@ class TestPDFGeneratorDispatch:
 
         captured = {}
 
-        def fake_render(fields, sig_path, filename):
+        def fake_render(fields, sig_path, filename, signature_hash=None):
             captured["renderer_name"] = gen._renderers.get("Unknown") or GenericTemplateRenderer("Unknown")
             return "uploads/generic.pdf"
 
