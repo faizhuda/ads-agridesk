@@ -14,10 +14,21 @@
 }
 
 @layer base {
+  :root {
+    --status-selesai-bg: #dcfce7;
+    --status-selesai-text: #15803d;
+    --status-ditolak-bg: #fee2e2;
+    --status-ditolak-text: #b91c1c;
+    --status-menunggu-bg: #fef9c3;
+    --status-menunggu-text: #a16207;
+    --status-draft-bg: #f3f4f6;
+    --status-draft-text: #4b5563;
+  }
+
   body {
     @apply bg-ivory text-primary font-sans antialiased selection:bg-primary selection:text-white;
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif;
   }

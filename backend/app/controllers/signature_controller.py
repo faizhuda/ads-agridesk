@@ -1,8 +1,7 @@
 from typing import List
-import os
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,6 +11,7 @@ from app.schemas.signature_schema import SignatureResponse, SignatureProfileResp
 from app.services.auth_service import AuthService
 from app.services.signature_service import SignatureService
 from app.utils.dependencies import get_current_user, require_role
+from app.utils.hash_generator import HashGenerator
 from app.utils.upload import save_signature_upload
 
 router = APIRouter(prefix="/api/signatures", tags=["Signatures"])
@@ -59,10 +59,11 @@ def sign_by_lecturer(
 def get_my_signature_profile(
     current_user: User = Depends(get_current_user),
 ):
-    import hashlib
     sig_hash = None
     if current_user.signature_image_path:
-        sig_hash = hashlib.md5((current_user.signature_image_path + str(current_user.updated_at)).encode('utf-8')).hexdigest()
+        sig_hash = HashGenerator.generate_hash(
+            f"profile:{current_user.id}:{current_user.updated_at}"
+        )
 
     return {
         "has_saved_signature": bool(current_user.signature_image_path),
@@ -76,13 +77,19 @@ def get_my_signature_profile(
 def get_my_signature_image(
     current_user: User = Depends(get_current_user),
 ):
+    from app.utils.storage import storage_service
     path = current_user.signature_image_path
-    if not path:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tanda tangan belum disimpan")
-    if not os.path.exists(path):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File tanda tangan tidak ditemukan")
-    return FileResponse(
-        path,
+    if not path or not storage_service.file_exists(path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tanda tangan belum disimpan"
+        )
+    content = storage_service.get_file_content(path)
+    ext = path.rsplit(".", 1)[-1].lower() if "." in path else "png"
+    media_type = f"image/{ext}" if ext in {"png", "jpg", "jpeg"} else "image/png"
+    return Response(
+        content=content,
+        media_type=media_type,
         headers={
             "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
             "Pragma": "no-cache",
@@ -98,14 +105,15 @@ def save_my_signature_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    import hashlib
     image_path = save_signature_upload(file, prefix=f"profile_{current_user.id}")
 
-    # Delegate persistence to service — no direct DB access in controller.
     auth_service = AuthService(db)
     updated_user = auth_service.update_signature_image(current_user.id, image_path)
 
-    sig_hash = hashlib.md5((updated_user.signature_image_path + str(updated_user.updated_at)).encode('utf-8')).hexdigest() if updated_user.signature_image_path else None
+    sig_hash = (
+        HashGenerator.generate_hash(f"profile:{updated_user.id}:{updated_user.updated_at}")
+        if updated_user.signature_image_path else None
+    )
 
     return {
         "has_saved_signature": bool(updated_user.signature_image_path),
@@ -139,5 +147,20 @@ def get_signatures_for_surat(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.repositories.surat_repository import SuratRepository
+
     service = SignatureService(db)
+
+    if current_user.role != UserRole.ADMIN:
+        surat = SuratRepository(db).get_by_id(surat_id)
+        is_owner = surat is not None and surat.mahasiswa_id == current_user.id
+        if not is_owner:
+            sigs = service.get_signatures_for_surat(surat_id)
+            if not any(s.owner_id == current_user.id for s in sigs):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Tidak diizinkan mengakses data ini",
+                )
+            return sigs
+
     return service.get_signatures_for_surat(surat_id)

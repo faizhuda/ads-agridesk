@@ -30,6 +30,7 @@ class UserRepository:
             nim=model.nim,
             nip=model.nip,
             signature_image_path=model.signature_image_path,
+            refresh_token_hash=model.refresh_token_hash,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -43,6 +44,7 @@ class UserRepository:
         model.nim = domain.nim
         model.nip = domain.nip
         model.signature_image_path = domain.signature_image_path
+        model.refresh_token_hash = domain.refresh_token_hash
 
     # ------------------------------------------------------------------
     # CRUD operations — return domain entities
@@ -119,6 +121,14 @@ class UserRepository:
         self.db.commit()
         self.db.refresh(model)
         return self._to_domain(model)
+
+    def update_refresh_token_hash(self, user_id: int, token_hash: Optional[str]) -> None:
+        """Set or clear the stored refresh token hash for a user."""
+        model = self.db.query(UserModel).filter(UserModel.id == user_id).first()
+        if model:
+            model.refresh_token_hash = token_hash
+            self.db.commit()
+            self.db.refresh(model)
 
     def delete(self, user_id: int) -> bool:
         model = self.db.query(UserModel).filter(UserModel.id == user_id).first()

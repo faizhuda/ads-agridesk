@@ -92,7 +92,7 @@ export default function DosenAllSuratPage() {
         <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Arsip &middot; Tugas Dosen</p>
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
           <div className="max-w-2xl">
-            <h1 className="text-4xl font-serif text-primary mb-3">
+            <h1 className="text-3xl sm:text-4xl font-serif text-primary mb-3">
               Riwayat <span className="italic">penugasan.</span>
             </h1>
             <p className="text-sm text-primary/70 leading-relaxed">
@@ -107,22 +107,22 @@ export default function DosenAllSuratPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-sepia-200 rounded-sm bg-white mb-12">
-        <div className="p-8 border-b md:border-b-0 md:border-r border-sepia-200 relative">
-          <div className="absolute top-8 right-8 w-1.5 h-1.5 rounded-full bg-primary/30"></div>
+        <div className="p-5 sm:p-8 border-b md:border-b-0 md:border-r border-sepia-200 relative">
+          <div className="absolute top-5 right-5 sm:top-8 sm:right-8 w-1.5 h-1.5 rounded-full bg-primary/30"></div>
           <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Menunggu TTD</p>
           <p className="text-5xl font-serif text-primary">
             {String(summary.pending).padStart(2, '0')}<span className="text-sm font-sans text-primary/50 ml-2">surat</span>
           </p>
         </div>
-        <div className="p-8 border-b md:border-b-0 md:border-r border-sepia-200 relative">
-          <div className="absolute top-8 right-8 w-1.5 h-1.5 rounded-full bg-green-700"></div>
+        <div className="p-5 sm:p-8 border-b md:border-b-0 md:border-r border-sepia-200 relative">
+          <div className="absolute top-5 right-5 sm:top-8 sm:right-8 w-1.5 h-1.5 rounded-full bg-green-700"></div>
           <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Sudah TTD</p>
           <p className="text-5xl font-serif text-primary">
             {String(summary.signed).padStart(2, '0')}<span className="text-sm font-sans text-primary/50 ml-2">surat</span>
           </p>
         </div>
-        <div className="p-8 relative">
-          <div className="absolute top-8 right-8 w-1.5 h-1.5 rounded-full bg-red-700"></div>
+        <div className="p-5 sm:p-8 relative">
+          <div className="absolute top-5 right-5 sm:top-8 sm:right-8 w-1.5 h-1.5 rounded-full bg-red-700"></div>
           <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Ditolak</p>
           <p className="text-5xl font-serif text-primary">
             {String(summary.rejected).padStart(2, '0')}<span className="text-sm font-sans text-primary/50 ml-2">surat</span>

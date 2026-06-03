@@ -5,17 +5,10 @@ import { Upload, FileText, Users, PenTool, ChevronRight, ChevronLeft, X, Check, 
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import { getErrorMessage } from '../utils/error';
+import { SIGNER_COLORS } from '../constants/signerColors';
 
 // Lazy load PDF viewer in its own chunk to isolate pdfjs-dist TDZ crash
 const PdfPageViewer = lazy(() => import('../components/PdfPageViewer'));
-
-const SIGNER_COLORS = [
-  { bg: 'rgba(13,148,136,0.15)', border: '#0d9488', text: '#0f766e', label: 'Teal' },
-  { bg: 'rgba(217,119,6,0.15)', border: '#d97706', text: '#b45309', label: 'Amber' },
-  { bg: 'rgba(124,58,237,0.15)', border: '#7c3aed', text: '#6d28d9', label: 'Violet' },
-  { bg: 'rgba(225,29,72,0.15)', border: '#e11d48', text: '#be123c', label: 'Rose' },
-  { bg: 'rgba(37,99,235,0.15)', border: '#2563eb', text: '#1d4ed8', label: 'Blue' },
-];
 
 const STEPS = [
   { key: 'upload', label: 'Upload Dokumen', icon: Upload },
@@ -361,8 +354,12 @@ function StepPlacement({ file, signers, onBack, onSubmit, submitting }) {
   // Every signer must have at least one field
   const allPlaced = signers.every((s) => fields.some((f) => f.user_id === s.user_id));
 
-  // When submitting, pass fields data up
-  const handleSubmitWithFields = () => { onSubmit(fields); };
+  // Stamp the current rendered width onto every field so the backend can
+  // compute the correct scale factor when overlaying signatures on the PDF.
+  const handleSubmitWithFields = () => {
+    const fieldsWithWidth = fields.map((f) => ({ ...f, rendered_width: pdfWidth }));
+    onSubmit(fieldsWithWidth);
+  };
 
   return (
     <div className="space-y-6">
@@ -480,6 +477,7 @@ export default function ExternalUploadWizardPage() {
           pos_width: f.pos_width,
           pos_height: f.pos_height,
           owner_email: signer?.email || '',
+          rendered_width: f.rendered_width ?? 700,
         };
       });
       fd.append('signer_configs_json', JSON.stringify(configs));

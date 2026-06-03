@@ -30,16 +30,17 @@ class SignatureService:
         student_id: int,
         image_path: str,
     ) -> Signature:
-        sig_hash = HashGenerator.generate_hash(f"{surat_id}:{student_id}:MAHASISWA")
-
         signature = Signature(
             surat_id=surat_id,
             owner_id=student_id,
             role=UserRole.MAHASISWA,
         )
-        signature.sign(image_path, sig_hash)
-
         signature = self.signature_repo.create(signature)
+        sig_hash = HashGenerator.generate_hash(
+            f"{surat_id}:{student_id}:{signature.id}:MAHASISWA"
+        )
+        signature.sign(image_path, sig_hash)
+        signature = self.signature_repo.update(signature)
 
         self.audit_service.log_event(
             "SIGNATURE_ADDED", student_id, UserRole.MAHASISWA.value,
@@ -53,7 +54,7 @@ class SignatureService:
         lecturer_id: int,
         image_path: str,
     ) -> Signature:
-        signature = self.signature_repo.get_by_id(signature_id)
+        signature = self.signature_repo.get_by_id_for_update(signature_id)
         if not signature:
             raise EntityNotFoundError("Signature record tidak ditemukan")
 
@@ -61,9 +62,7 @@ class SignatureService:
         signature.validate_owner(lecturer_id)
 
         # Enforce sequential signing order
-        from app.models.surat import SuratModel
-        surat_model = self.db.query(SuratModel).filter(SuratModel.id == signature.surat_id).first()
-        if surat_model and surat_model.is_sequential:
+        if self.surat_repo.get_is_sequential(signature.surat_id):
             next_signers = self.signature_repo.get_next_to_sign(signature.surat_id, True)
             allowed_ids = {s.id for s in next_signers}
             if signature.id not in allowed_ids:
@@ -73,7 +72,7 @@ class SignatureService:
                 )
 
         sig_hash = HashGenerator.generate_hash(
-            f"{signature.surat_id}:{lecturer_id}:DOSEN"
+            f"{signature.surat_id}:{lecturer_id}:{signature.id}:DOSEN"
         )
         signature.sign(image_path, sig_hash)
 
@@ -110,15 +109,18 @@ class SignatureService:
 
     def get_pending_for_lecturer(self, lecturer_id: int) -> List[Signature]:
         all_pending = self.signature_repo.get_pending_for_lecturer(lecturer_id)
-        # Filter out sequential surat where it's not this lecturer's turn
-        from app.models.surat import SuratModel
+        if not all_pending:
+            return []
+
+        surat_ids = {sig.surat_id for sig in all_pending}
+        sequential_ids = self.surat_repo.get_sequential_ids(surat_ids)
+
         result = []
         for sig in all_pending:
-            surat_model = self.db.query(SuratModel).filter(SuratModel.id == sig.surat_id).first()
-            if surat_model and surat_model.is_sequential:
+            if sig.surat_id in sequential_ids:
                 next_signers = self.signature_repo.get_next_to_sign(sig.surat_id, True)
                 if not any(s.id == sig.id for s in next_signers):
-                    continue  # Not this lecturer's turn yet
+                    continue
             result.append(sig)
         return result
 

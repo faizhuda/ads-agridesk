@@ -39,6 +39,7 @@ class SignatureRepository:
             pos_width=model.pos_width,
             pos_height=model.pos_height,
             owner_email=model.owner_email,
+            rendered_width=model.rendered_width,
             # Read-only display fields from ORM relationships
             surat_jenis=model.surat.jenis if model.surat else None,
             mahasiswa_name=(
@@ -65,6 +66,7 @@ class SignatureRepository:
         model.pos_width = domain.pos_width
         model.pos_height = domain.pos_height
         model.owner_email = domain.owner_email
+        model.rendered_width = domain.rendered_width
 
     # ------------------------------------------------------------------
     # CRUD operations — return domain entities
@@ -82,9 +84,28 @@ class SignatureRepository:
         model = self.db.query(SignatureModel).filter(SignatureModel.id == signature_id).first()
         return self._to_domain(model) if model else None
 
+    def get_by_id_for_update(self, signature_id: int) -> Optional[Signature]:
+        """Fetch a signature and lock the row (SELECT FOR UPDATE).
+
+        Use whenever the signature is about to be mutated.  The lock is held
+        until the surrounding transaction commits, preventing two concurrent
+        requests from double-signing the same slot.
+        """
+        model = (
+            self.db.query(SignatureModel)
+            .filter(SignatureModel.id == signature_id)
+            .with_for_update()
+            .first()
+        )
+        return self._to_domain(model) if model else None
+
     def get_by_surat_id(self, surat_id: int) -> List[Signature]:
         models = (
             self.db.query(SignatureModel)
+            .options(
+                joinedload(SignatureModel.owner),
+                joinedload(SignatureModel.surat).joinedload(SuratModel.mahasiswa),
+            )
             .filter(SignatureModel.surat_id == surat_id)
             .order_by(
                 SignatureModel.signing_order.asc().nulls_last(),

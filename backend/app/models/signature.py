@@ -30,6 +30,8 @@ class SignatureModel(Base):
     pos_height = Column(Float, nullable=True, default=60.0)
     # Cached display email (denormalized for performance)
     owner_email = Column(String, nullable=True)
+    # Width of the PDF viewport (px) at the time the signature was placed in the wizard
+    rendered_width = Column(Float, nullable=True)
 
     surat = relationship("SuratModel", back_populates="signatures")
     owner = relationship("UserModel", back_populates="signatures")

@@ -30,6 +30,7 @@ class Signature:
     pos_width: Optional[float] = 120.0
     pos_height: Optional[float] = 60.0
     owner_email: Optional[str] = None
+    rendered_width: Optional[float] = None  # viewport width used during placement
 
     # Read-only display fields populated by the repository layer.
     surat_jenis: Optional[str] = None
@@ -41,14 +42,16 @@ class Signature:
     # Business actions
     # ------------------------------------------------------------------
 
-    def sign(self, image_path: str, signature_hash: str) -> None:
+    def sign(self, image_path: Optional[str], signature_hash: str) -> None:
         """Sign this signature record.
 
-        Validates that it has not been signed yet, then records the
-        image, hash and timestamp.
+        Validates the record is unsigned and that a valid image path is
+        provided, then records the image, hash and timestamp.
         """
         if self.is_signed():
             raise ValidationError("Sudah ditandatangani")
+        if not image_path:
+            raise ValidationError("Path gambar tanda tangan tidak boleh kosong")
         self.image_path = image_path
         self.signed_at = datetime.now(timezone.utc)
         self.signature_hash = signature_hash

@@ -19,6 +19,7 @@ class User:
     nim: Optional[str] = None
     nip: Optional[str] = None
     signature_image_path: Optional[str] = None
+    refresh_token_hash: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

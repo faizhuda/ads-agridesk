@@ -234,7 +234,7 @@ export default function Navbar() {
             </button>
 
             {isNotificationOpen && (
-              <div className="absolute top-16 right-32 w-96 bg-white border border-sepia-200 shadow-xl rounded-sm overflow-hidden z-50">
+              <div className="absolute top-16 right-0 sm:right-32 w-80 sm:w-96 max-w-[calc(100vw-1rem)] bg-white border border-sepia-200 shadow-xl rounded-sm overflow-hidden z-50">
                 <div className="px-4 py-3 border-b border-sepia-200 bg-ivory flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-primary">Notifikasi</p>

@@ -8,7 +8,27 @@ export function AuthProvider({ children }) {
     const saved = localStorage.getItem('user');
     return saved ? JSON.parse(saved) : null;
   });
-  const [loading, setLoading] = useState(false);
+  // authLoading is true only when a token exists and needs server validation.
+  // Keeps ProtectedRoute from flashing /login while the token is being checked.
+  const [authLoading, setAuthLoading] = useState(() => !!localStorage.getItem('token'));
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setAuthLoading(false);
+      return;
+    }
+    api.get('/api/auth/me')
+      .then(res => {
+        setUser(res.data);
+        localStorage.setItem('user', JSON.stringify(res.data));
+      })
+      .catch(() => {
+        // api.js interceptor handles 401: tries refresh, then clears storage + redirects.
+        // authLoading cleared in finally regardless of outcome.
+      })
+      .finally(() => setAuthLoading(false));
+  }, []);
 
   const login = async (email, password) => {
     const res = await api.post('/api/auth/login', { email, password });
@@ -33,7 +53,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, authLoading }}>
       {children}
     </AuthContext.Provider>
   );

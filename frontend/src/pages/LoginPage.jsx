@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils/error';
 import api from '../api';
-import { ShieldCheck, Clock, FileCheck, X, KeyRound, Mail, AlertCircle, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Clock, FileCheck, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
@@ -14,40 +14,6 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({ dokumen_terbit: 0, tanda_tangan: 0, rata_rata_jam: 0 });
-
-  // Forgot password states
-  const [isResetOpen, setIsResetOpen] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetSuccess, setResetSuccess] = useState(false);
-  const [resetError, setResetError] = useState('');
-
-  const handleResetSubmit = async (e) => {
-    e.preventDefault();
-    setResetLoading(true);
-    setResetError('');
-    
-    if (!resetEmail.endsWith('@apps.ipb.ac.id')) {
-      setResetError('Silakan gunakan email institusi IPB yang valid (@apps.ipb.ac.id).');
-      setResetLoading(false);
-      return;
-    }
-
-    try {
-      await api.post('/api/auth/forgot-password', { email: resetEmail });
-      setResetSuccess(true);
-      toast.success('Surel pemulihan berhasil dikirim!');
-    } catch (err) {
-      // Simulate successful request for perfect UX prototype if endpoint doesn't exist
-      setTimeout(() => {
-        setResetSuccess(true);
-        toast.success('Surel pemulihan berhasil dikirim!');
-        setResetLoading(false);
-      }, 1500);
-      return;
-    }
-    setResetLoading(false);
-  };
 
   useEffect(() => {
     // Fetch real stats
@@ -170,7 +136,7 @@ export default function LoginPage() {
                   <label className="block text-xs tracking-widest text-primary/60 uppercase">
                     Kata Sandi
                   </label>
-                  <button type="button" onClick={() => { setIsResetOpen(true); setResetSuccess(false); setResetEmail(''); setResetError(''); }} className="text-xs text-primary/60 hover:text-primary">Lupa kata sandi?</button>
+                  <p className="text-xs text-primary/40">Lupa? Hubungi administrator prodi.</p>
                 </div>
                 <input
                   type="password"
@@ -203,90 +169,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-      {isResetOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div
-              onClick={() => setIsResetOpen(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-xs"
-            />
-            <div
-              className="relative w-full max-w-md bg-white border border-sepia-200 shadow-2xl rounded-sm p-6 z-10"
-            >
-              <button
-                onClick={() => setIsResetOpen(false)}
-                className="absolute top-4 right-4 p-1 text-primary/50 hover:text-primary hover:bg-sepia-100 rounded-sm transition-colors"
-              >
-                <X size={16} />
-              </button>
-
-              {!resetSuccess ? (
-                <form onSubmit={handleResetSubmit} className="space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-2 bg-ivory rounded-sm text-primary">
-                      <KeyRound size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-serif font-semibold text-primary">Lupa Kata Sandi?</h3>
-                      <p className="text-xs text-primary/50">Pemulihan akses akun Agridesk</p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-primary/70 leading-relaxed">
-                    Masukkan alamat email institusi IPB yang terdaftar. Kami akan mengirimkan surel instruksi lengkap untuk mengatur ulang kata sandi Anda secara aman.
-                  </p>
-
-                  {resetError && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 p-3 text-xs rounded-sm flex items-start gap-2">
-                      <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                      <span>{resetError}</span>
-                    </div>
-                  )}
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] tracking-widest text-primary/60 uppercase">
-                      Email Institusi IPB
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={resetEmail}
-                      onChange={(e) => setResetEmail(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-sepia-200 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary rounded-sm transition-colors text-sm"
-                      placeholder="nama@apps.ipb.ac.id"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={resetLoading}
-                    className="w-full py-2.5 px-4 bg-primary text-white text-xs font-semibold hover:bg-primary-dark rounded-sm transition-colors disabled:opacity-70 flex justify-center items-center gap-2"
-                  >
-                    {resetLoading ? 'Mengirim...' : 'Kirim Petunjuk Pemulihan'}
-                  </button>
-                </form>
-              ) : (
-                <div className="space-y-4 text-center py-4">
-                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2 border border-emerald-200">
-                    <Mail size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-serif font-semibold text-primary">Surel Terkirim!</h3>
-                    <p className="text-xs text-primary/50">Instruksi pemulihan telah dikirim</p>
-                  </div>
-                  <p className="text-xs text-primary/70 leading-relaxed max-w-sm mx-auto">
-                    Kami telah mengirimkan tautan reset kata sandi ke <strong className="text-primary">{resetEmail}</strong>. Silakan periksa kotak masuk (inbox) atau folder spam Anda.
-                  </p>
-                  <button
-                    onClick={() => setIsResetOpen(false)}
-                    className="mt-2 w-full py-2 bg-primary text-white text-xs font-semibold hover:bg-primary-dark rounded-sm transition-colors"
-                  >
-                    Kembali ke Login
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
     </div>
   );
 }

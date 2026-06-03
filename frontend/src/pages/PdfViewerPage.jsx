@@ -1,32 +1,26 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
-import { getApiBaseUrl } from '../utils/apiBaseUrl';
+import { downloadSuratPdf, fetchSuratPdfBlobUrl } from '../utils/pdf';
 
 export default function PdfViewerPage() {
   const { id } = useParams();
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
 
-  const token = localStorage.getItem('token') || '';
-  const backendBase = getApiBaseUrl();
-  const pdfUrl = useMemo(
-    () => `${backendBase}/api/surat/${id}/pdf?token=${encodeURIComponent(token)}`,
-    [id, token, backendBase]
-  );
-
-  const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.download = `surat-${id}.pdf`;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  useEffect(() => {
+    let url = null;
+    fetchSuratPdfBlobUrl(id).then(blobUrl => {
+      url = blobUrl;
+      setPdfBlobUrl(blobUrl);
+    }).catch(() => {});
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [id]);
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 80px)' }}>
+    <div className="flex flex-col h-dvh">
       {/* Toolbar */}
-      <div className="px-6 py-3 bg-ivory border-b border-sepia-200 flex items-center justify-between shrink-0">
+      <div className="shrink-0 px-4 sm:px-6 py-3 bg-ivory border-b border-sepia-200 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
             to={`/surat/${id}`}
@@ -42,33 +36,35 @@ export default function PdfViewerPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={handleDownload}
+            onClick={async () => { try { await downloadSuratPdf(id); } catch { toast.error('Gagal mengunduh PDF'); } }}
             className="flex items-center gap-2 px-4 py-2 text-sm border border-sepia-200 text-primary hover:border-primary hover:bg-white transition-colors rounded-sm"
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Unduh</span>
           </button>
-          <a
-            href={pdfUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 text-sm border border-sepia-200 text-primary hover:border-primary hover:bg-white transition-colors rounded-sm"
-          >
-            <ExternalLink className="w-4 h-4" />
-            <span className="hidden sm:inline">Tab Baru</span>
-          </a>
+          {pdfBlobUrl && (
+            <a
+              href={pdfBlobUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 text-sm border border-sepia-200 text-primary hover:border-primary hover:bg-white transition-colors rounded-sm"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span className="hidden sm:inline">Tab Baru</span>
+            </a>
+          )}
         </div>
       </div>
 
       {/* PDF Iframe — fills all remaining space */}
-      <iframe
-        src={pdfUrl}
-        title={`Dokumen Surat #${id}`}
-        className="flex-1 w-full border-0 bg-white"
-        style={{ minHeight: 0 }}
-        allow="fullscreen"
-      />
+      <div className="flex-1 min-h-0">
+        <iframe
+          src={pdfBlobUrl || ''}
+          title={`Dokumen Surat #${id}`}
+          className="w-full h-full border-0 bg-white"
+          allow="fullscreen"
+        />
+      </div>
     </div>
   );
 }
-

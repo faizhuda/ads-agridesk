@@ -5,7 +5,7 @@ import { getErrorMessage } from '../utils/error';
 import { toast } from 'sonner';
 import TableSkeleton from '../components/TableSkeleton';
 import EmptyState from '../components/EmptyState';
-import { getApiBaseUrl } from '../utils/apiBaseUrl';
+import { downloadSuratPdf } from '../utils/pdf';
 
 export default function DosenDashboard() {
   const [pending, setPending] = useState([]);
@@ -67,7 +67,7 @@ export default function DosenDashboard() {
         <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Antrean &middot; Tanda Tangan</p>
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
           <div className="max-w-2xl">
-            <h1 className="text-4xl font-serif text-primary mb-3">
+            <h1 className="text-3xl sm:text-4xl font-serif text-primary mb-3">
               Meja <span className="italic">Kerja Anda.</span>
             </h1>
             <p className="text-sm text-primary/70 leading-relaxed">
@@ -150,17 +150,7 @@ export default function DosenDashboard() {
                     </td>
                     <td className="py-5 px-6 text-right">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => {
-                          const token = localStorage.getItem('token') || '';
-                          const url = `${getApiBaseUrl()}/api/surat/${sig.surat_id}/pdf?token=${encodeURIComponent(token)}`;
-                          const link = document.createElement('a');
-                          link.href = url;
-                          link.download = `surat-${sig.surat_id}.pdf`;
-                          link.target = '_blank';
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                        }} className="text-xs font-medium px-4 py-1.5 border border-sepia-200 text-primary hover:border-primary transition-colors rounded-sm bg-ivory group-hover:bg-white flex items-center gap-1">
+                        <button onClick={async () => { try { await downloadSuratPdf(sig.surat_id); } catch { toast.error('Gagal mengunduh PDF'); } }} className="text-xs font-medium px-4 py-1.5 border border-sepia-200 text-primary hover:border-primary transition-colors rounded-sm bg-ivory group-hover:bg-white flex items-center gap-1">
                           Unduh PDF
                         </button>
                         <Link to={`/surat/${sig.surat_id}`} className="text-xs font-medium px-4 py-1.5 bg-primary text-white hover:bg-primary-dark transition-colors rounded-sm">
@@ -201,17 +191,7 @@ export default function DosenDashboard() {
                 </div>
 
                 <div className="flex justify-end gap-2 mt-2">
-                  <button onClick={() => {
-                    const token = localStorage.getItem('token') || '';
-                    const url = `${getApiBaseUrl()}/api/surat/${sig.surat_id}/pdf?token=${encodeURIComponent(token)}`;
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `surat-${sig.surat_id}.pdf`;
-                    link.target = '_blank';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }} className="flex-1 justify-center text-xs font-medium px-4 py-2 border border-sepia-200 text-primary hover:border-primary transition-colors rounded-sm bg-ivory flex items-center gap-1">
+                  <button onClick={async () => { try { await downloadSuratPdf(sig.surat_id); } catch { toast.error('Gagal mengunduh PDF'); } }} className="flex-1 justify-center text-xs font-medium px-4 py-2 border border-sepia-200 text-primary hover:border-primary transition-colors rounded-sm bg-ivory flex items-center gap-1">
                     Unduh PDF
                   </button>
                   <Link to={`/surat/${sig.surat_id}`} className="flex-1 text-center text-xs font-medium px-4 py-2 bg-primary text-white hover:bg-primary-dark transition-colors rounded-sm flex items-center justify-center">

@@ -1,9 +1,21 @@
 import os
 import uuid
+from abc import ABC, abstractmethod
 from app.config import settings
 
 
-class StorageService:
+class StorageBackend(ABC):
+    @abstractmethod
+    def upload_file(self, file_content: bytes, original_filename: str) -> str: ...
+
+    @abstractmethod
+    def get_file_content(self, path_or_key: str) -> bytes: ...
+
+    @abstractmethod
+    def file_exists(self, path_or_key: str) -> bool: ...
+
+
+class StorageService(StorageBackend):
     """
     Local-filesystem storage service.
 
@@ -30,15 +42,22 @@ class StorageService:
 
     def get_file_content(self, path_or_key: str) -> bytes:
         """Return the raw bytes for the given file path."""
-        # Normalise: strip leading slashes so we don't leave the uploads dir.
-        if path_or_key.startswith("/"):
-            path_or_key = path_or_key.lstrip("/")
+        upload_dir_real = os.path.realpath(os.path.abspath(self.upload_dir))
 
-        # Accept both "uploads/xxx.pdf" and bare "xxx.pdf"
-        if os.path.isabs(path_or_key) or path_or_key.startswith(self.upload_dir):
-            filepath = path_or_key
+        # Resolve the requested path relative to the upload dir.
+        # Never strip or ignore leading slashes before the traversal check —
+        # doing so would allow "/etc/passwd" to be silently rewritten to
+        # "uploads/etc/passwd" and bypass the guard below.
+        if os.path.isabs(path_or_key):
+            filepath = os.path.realpath(os.path.abspath(path_or_key))
+        elif path_or_key.startswith(self.upload_dir + os.sep) or path_or_key == self.upload_dir:
+            filepath = os.path.realpath(os.path.abspath(path_or_key))
         else:
-            filepath = os.path.join(self.upload_dir, path_or_key)
+            filepath = os.path.realpath(os.path.abspath(os.path.join(self.upload_dir, path_or_key)))
+
+        # Path traversal guard: resolved path must be inside upload_dir.
+        if not filepath.startswith(upload_dir_real + os.sep) and filepath != upload_dir_real:
+            raise PermissionError("Access denied: path resolves outside upload directory")
 
         if os.path.exists(filepath):
             with open(filepath, "rb") as f:
@@ -55,4 +74,4 @@ class StorageService:
             return False
 
 
-storage_service = StorageService()
+storage_service: StorageBackend = StorageService()

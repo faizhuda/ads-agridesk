@@ -17,6 +17,7 @@ class UserModel(Base):
     nim = Column(String, unique=True, nullable=True)
     nip = Column(String, unique=True, nullable=True)
     signature_image_path = Column(String, nullable=True)
+    refresh_token_hash = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

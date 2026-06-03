@@ -22,6 +22,7 @@ from app.domain.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from app.config import settings
 from app.utils.limiter import limiter
 
 app = FastAPI(
@@ -32,20 +33,10 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS
+# CORS — origins are configured via ALLOWED_ORIGINS in .env / environment variables.
 app.add_middleware(
     CORSMiddleware,
-    # Accept both common Vite dev hosts to avoid browser CORS-blocked "Network Error".
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://mtf.idenx.id",
-        # Production deployment
-        "https://drive.hq.idenx.id",
-        # Allow plain http origins for local docker and proxy setups
-        "http://localhost",
-        "http://127.0.0.1",
-    ],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],

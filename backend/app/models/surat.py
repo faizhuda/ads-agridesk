@@ -20,7 +20,7 @@ class SuratModel(Base):
     file_path = Column(String, nullable=True)
     internal_fields_raw = Column("internal_fields", String, nullable=True)
     status = Column(SAEnum(SuratStatus), default=SuratStatus.DRAFT, nullable=False)
-    document_hash = Column(String, nullable=True, unique=True)
+    document_hash = Column(String, nullable=True)  # uniqueness enforced by partial index (see migration)
     pdf_path = Column(String, nullable=True)
     qr_path = Column(String, nullable=True)
     is_sequential = Column(Boolean, default=False, nullable=False)

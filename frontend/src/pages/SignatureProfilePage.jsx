@@ -6,7 +6,9 @@ import { getErrorMessage } from '../utils/error';
 export default function SignatureProfilePage() {
   const { user } = useAuth();
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
   const drawingRef = useRef(false);
+  const [canvasWidth, setCanvasWidth] = useState(800);
   const [hasSaved, setHasSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -56,6 +58,17 @@ export default function SignatureProfilePage() {
   }, [user?.id]);
 
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(entries => {
+      for (const entry of entries)
+        setCanvasWidth(Math.min(Math.floor(entry.contentRect.width), 800));
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
@@ -97,7 +110,7 @@ export default function SignatureProfilePage() {
     const ctx = canvasRef.current.getContext('2d');
     const { x, y } = getPoint(e);
     ctx.lineTo(x, y);
-    ctx.strokeStyle = '#1a2e26'; // primary color
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#1a2e26';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -146,7 +159,7 @@ export default function SignatureProfilePage() {
       <div className="mb-12">
         <p className="text-[10px] tracking-widest text-primary/50 uppercase mb-4">Profil &middot; Tanda Tangan</p>
         <div className="max-w-2xl">
-          <h1 className="text-4xl font-serif text-primary mb-3">
+          <h1 className="text-3xl sm:text-4xl font-serif text-primary mb-3">
             Tanda tangan <span className="italic">resmi</span> Anda.
           </h1>
           <p className="text-sm text-primary/70 leading-relaxed">
@@ -168,12 +181,12 @@ export default function SignatureProfilePage() {
             </div>
 
             <div className="p-6 sm:p-8">
-              <div className="bg-white border border-sepia-200 rounded-sm relative touch-none group">
+              <div ref={containerRef} className="bg-white border border-sepia-200 rounded-sm relative touch-none group">
                 <canvas
                   ref={canvasRef}
-                  width={800}
-                  height={300}
-                  className="w-full h-auto cursor-crosshair"
+                  width={canvasWidth}
+                  height={Math.round(canvasWidth * 0.375)}
+                  className="w-full cursor-crosshair block"
                   onMouseDown={startDraw}
                   onMouseMove={draw}
                   onMouseUp={endDraw}
