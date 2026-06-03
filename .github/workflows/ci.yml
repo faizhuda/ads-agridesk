@@ -26,6 +26,7 @@ jobs:
     - name: Run tests
       env:
         SECRET_KEY: dummy-secret-key-for-github-actions-testing-only
+        DATABASE_URL: sqlite:///./test.db
       run: |
         cd backend
         python -m pytest
