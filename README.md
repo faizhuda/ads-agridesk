@@ -16,7 +16,7 @@ A high-performance Python backend implementing Domain-Driven Design (DDD) and Cl
   - JWT + bcrypt authentication.
   - SHA-256 document hashing & QR Code generation for anti-tampering.
   - PyPDF & ReportLab for physical coordinate-based signature stamping.
-  - 100% Test Coverage on core services (32 tests passing in <6s via in-memory SQLite).
+  - 100% Test Coverage on core services (118 tests passing via in-memory SQLite).
 
 ### 2. [Frontend (React + Vite)](./frontend/README.md)
 A fluid, modern, and highly responsive web application focused on premium UX.

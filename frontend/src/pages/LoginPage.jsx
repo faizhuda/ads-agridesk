@@ -26,7 +26,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    if (!email.endsWith('@apps.ipb.ac.id')) {
+    if (!email.toLowerCase().endsWith('@apps.ipb.ac.id')) {
       const errorMsg = 'Silakan gunakan email institusi IPB yang valid (@apps.ipb.ac.id) untuk masuk.';
       setError(errorMsg);
       toast.error('Domain email tidak valid!');
