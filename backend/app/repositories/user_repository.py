@@ -124,13 +124,11 @@ class UserRepository:
 
     def update_refresh_token_hash(self, user_id: int, token_hash: Optional[str]) -> None:
         """Set or clear the stored refresh token hash for a user."""
-        self.db.query(UserModel).filter(UserModel.id == user_id).update(
-            {"refresh_token_hash": token_hash}
-        )
-        self.db.commit()
-        # Expire identity map so subsequent get_by_id() fetches fresh data.
-        # Bulk UPDATE bypasses SQLAlchemy's ORM cache.
-        self.db.expire_all()
+        model = self.db.query(UserModel).filter(UserModel.id == user_id).first()
+        if model:
+            model.refresh_token_hash = token_hash
+            self.db.commit()
+            self.db.refresh(model)
 
     def delete(self, user_id: int) -> bool:
         model = self.db.query(UserModel).filter(UserModel.id == user_id).first()

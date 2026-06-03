@@ -89,13 +89,13 @@ class SuratRepository:
     def get_by_mahasiswa_id(self, mahasiswa_id: int, skip: int = 0, limit: int = 100) -> Tuple[List[Surat], int]:
         query = self.db.query(SuratModel).filter(SuratModel.mahasiswa_id == mahasiswa_id)
         total = query.count()
-        models = query.order_by(SuratModel.created_at.desc()).offset(skip).limit(limit).all()
+        models = query.order_by(SuratModel.created_at.desc(), SuratModel.id.desc()).offset(skip).limit(limit).all()
         return [self._to_domain(m) for m in models], total
 
     def get_by_status(self, status: SuratStatus, skip: int = 0, limit: int = 100) -> Tuple[List[Surat], int]:
         query = self.db.query(SuratModel).filter(SuratModel.status == status)
         total = query.count()
-        models = query.order_by(SuratModel.created_at.desc()).offset(skip).limit(limit).all()
+        models = query.order_by(SuratModel.created_at.desc(), SuratModel.id.desc()).offset(skip).limit(limit).all()
         return [self._to_domain(m) for m in models], total
 
     def get_by_document_hash(self, document_hash: str) -> Optional[Surat]:
@@ -108,7 +108,7 @@ class SuratRepository:
     def get_all(self, skip: int = 0, limit: int = 100) -> Tuple[List[Surat], int]:
         query = self.db.query(SuratModel)
         total = query.count()
-        models = query.order_by(SuratModel.created_at.desc()).offset(skip).limit(limit).all()
+        models = query.order_by(SuratModel.created_at.desc(), SuratModel.id.desc()).offset(skip).limit(limit).all()
         return [self._to_domain(m) for m in models], total
 
     def update(self, surat: Surat) -> Surat:
