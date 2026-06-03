@@ -72,7 +72,7 @@ pip install -r requirements.txt
 If you use the workspace venv from repo root on Windows:
 
 ```powershell
-c:/Users/faizn/ads-agridesk/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
 ```
 
 ## Database Migrations (Alembic)
@@ -165,7 +165,7 @@ pytest tests/ -v --tb=short
 Windows (workspace venv):
 
 ```powershell
-c:/Users/faizn/ads-agridesk/.venv/Scripts/python.exe -m pytest tests/ -v --tb=short
+backend/.venv/Scripts/python.exe -m pytest tests/ -v --tb=short
 ```
 
 ## Frontend Integration Notes
