@@ -27,10 +27,15 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    import uuid
     to_encode = data.copy()
     # Refresh tokens last for 7 days by default
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=7))
-    to_encode.update({"exp": expire, "type": "refresh"})
+    to_encode.update({
+        "exp": expire,
+        "type": "refresh",
+        "jti": str(uuid.uuid4())
+    })
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
