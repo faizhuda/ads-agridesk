@@ -47,7 +47,7 @@ def login(request: Request, body: UserLoginRequest, db: Session = Depends(get_db
 
 @router.post("/refresh", response_model=RefreshTokenResponse)
 @limiter.limit("30/minute")
-def refresh_token(http_request: Request, body: RefreshRequest, db: Session = Depends(get_db)):
+def refresh_token(request: Request, body: RefreshRequest, db: Session = Depends(get_db)):
     service = AuthService(db)
     return service.refresh(body.refresh_token)
 
