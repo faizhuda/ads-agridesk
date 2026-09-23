@@ -1,7 +1,6 @@
 from pathlib import Path
 import secrets
 
-from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -27,8 +26,12 @@ class Settings(BaseSettings):
         "http://127.0.0.1",
     ]
 
-    # Storage — defaults to local filesystem (False = no S3/MinIO)
-    USE_S3: bool = False
+    # Storage. Local remains the default for development; production uses
+    # Supabase Storage with a private bucket.
+    STORAGE_BACKEND: str = "local"
+    SUPABASE_URL: str | None = None
+    SUPABASE_SERVICE_ROLE_KEY: str | None = None
+    SUPABASE_STORAGE_BUCKET: str = "agridesk-private"
 
     model_config = {"env_file": str(BASE_DIR / ".env"), "extra": "ignore"}
 
@@ -50,4 +53,12 @@ except Exception as e:
     print("  SECRET_KEY=" + secrets.token_urlsafe(32), file=sys.stderr)
     print("=" * 80 + "\n", file=sys.stderr)
     raise RuntimeError("Application startup aborted due to missing required configuration.") from e
+
+
+if settings.STORAGE_BACKEND.lower() == "supabase":
+    if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError(
+            "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required when "
+            "STORAGE_BACKEND=supabase."
+        )
 

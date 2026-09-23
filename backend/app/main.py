@@ -11,6 +11,7 @@ from app.controllers import (
     signature_controller,
     audit_log_controller,
     notification_controller,
+    storage_controller,
 )
 from app.database import SessionLocal
 from app.utils.template_seed import seed_default_internal_templates
@@ -71,6 +72,7 @@ app.include_router(surat_controller.router)
 app.include_router(verification_controller.router)
 app.include_router(signature_controller.router)
 app.include_router(notification_controller.router)
+app.include_router(storage_controller.router)
 app.include_router(audit_log_controller.router, prefix="/api/audit-logs", tags=["Audit Log"])
 
 

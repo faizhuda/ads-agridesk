@@ -19,6 +19,9 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 @pytest.fixture(autouse=True)
 def db():
+    # Start clean even when a previous test run was interrupted before its
+    # teardown completed (for example by an IDE timeout).
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     session = TestingSessionLocal()
     try:

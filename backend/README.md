@@ -83,6 +83,39 @@ From `backend/`:
 alembic upgrade head
 ```
 
+## Vercel + Supabase deployment
+
+The frontend and API are intentionally deployed as two Vercel projects from
+this monorepo:
+
+1. Create a private Supabase Storage bucket by running
+   [`../supabase/setup.sql`](../supabase/setup.sql) in the Supabase SQL Editor.
+2. Set the Supabase Postgres connection string as `DATABASE_URL`, then run
+   `alembic upgrade head` once from a trusted machine. Do not run migrations
+   during a Vercel request.
+3. Create a Vercel project whose Root Directory is `backend`. Vercel discovers
+   the FastAPI function through `api/index.py`.
+4. Configure these production environment variables in the API project:
+
+   ```dotenv
+   DATABASE_URL=postgresql://...
+   SECRET_KEY=<new-random-secret>
+   BASE_URL=https://your-frontend-domain
+   ALLOWED_ORIGINS=["https://your-frontend-domain"]
+   STORAGE_BACKEND=supabase
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+   SUPABASE_STORAGE_BUCKET=agridesk-private
+   ```
+
+5. Create a second Vercel project whose Root Directory is `frontend`. Set
+   `VITE_API_BASE_URL` to the API project's HTTPS URL and
+   `VITE_DIRECT_UPLOADS=true`.
+
+PDFs use a short-lived signed upload URL, so the browser sends them directly to
+the private bucket rather than through a Vercel Function. The service-role key
+must be set only in the API project, never in the frontend.
+
 Create a new migration after model changes:
 
 ```bash

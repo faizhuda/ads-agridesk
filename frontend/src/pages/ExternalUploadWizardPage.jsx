@@ -459,7 +459,27 @@ export default function ExternalUploadWizardPage() {
     setSubmitting(true);
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      const useDirectUpload = import.meta.env.VITE_DIRECT_UPLOADS === 'true';
+      if (useDirectUpload) {
+        const upload = await api.post('/api/storage/external-pdf-upload', {
+          filename: file.name,
+          content_type: file.type,
+          size: file.size,
+        });
+        const response = await fetch(upload.data.upload_url, {
+          method: 'PUT',
+          headers: {
+            'content-type': file.type,
+            'cache-control': 'max-age=3600',
+          },
+          body: file,
+        });
+        if (!response.ok) throw new Error('Gagal mengunggah PDF ke Storage');
+        fd.append('storage_key', upload.data.object_key);
+      } else {
+        // Local development keeps the existing FastAPI multipart upload path.
+        fd.append('file', file);
+      }
       fd.append('jenis', jenis);
       fd.append('keperluan', keperluan);
       fd.append('is_sequential', isSequential);

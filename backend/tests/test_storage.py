@@ -6,10 +6,11 @@ resolves outside the configured upload directory.
 """
 import os
 import tempfile
+from unittest.mock import Mock, patch
 
 import pytest
 
-from app.utils.storage import StorageService
+from app.utils.storage import StorageService, SupabaseStorageService
 
 
 @pytest.fixture
@@ -86,3 +87,40 @@ class TestPathTraversalGuard:
         path = svc.upload_file(data, "binary.bin")
         with open(path, "rb") as f:
             assert f.read() == data
+
+
+class TestSupabaseStorageService:
+    @pytest.fixture
+    def storage(self):
+        svc = SupabaseStorageService.__new__(SupabaseStorageService)
+        svc.base_url = "https://project.supabase.co"
+        svc.bucket = "agridesk-private"
+        svc.headers = {"apikey": "test", "Authorization": "Bearer test"}
+        return svc
+
+    def test_signed_upload_url_uses_private_bucket_and_token(self, storage):
+        response = Mock()
+        response.json.return_value = {
+            "url": "/object/upload/sign/agridesk-private/external/4/file.pdf?token=abc"
+        }
+        response.raise_for_status.return_value = None
+
+        with patch("app.utils.storage.httpx.post", return_value=response) as post:
+            signed_url = storage.create_signed_upload_url("external/4/file.pdf")
+
+        assert signed_url == (
+            "https://project.supabase.co/storage/v1/object/upload/sign/"
+            "agridesk-private/external/4/file.pdf?token=abc"
+        )
+        assert post.call_args.args[0].endswith("/object/upload/sign/agridesk-private/external/4/file.pdf")
+
+    def test_upload_uses_generated_prefix_and_detects_pdf_type(self, storage):
+        response = Mock()
+        response.raise_for_status.return_value = None
+
+        with patch("app.utils.storage.httpx.post", return_value=response) as post:
+            object_key = storage.upload_file(b"%PDF", "final.pdf")
+
+        assert object_key.startswith("generated/")
+        assert object_key.endswith(".pdf")
+        assert post.call_args.kwargs["headers"]["content-type"] == "application/pdf"

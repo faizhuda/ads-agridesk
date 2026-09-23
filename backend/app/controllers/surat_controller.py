@@ -1,4 +1,5 @@
 import os
+from io import BytesIO
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query, BackgroundTasks
@@ -18,6 +19,7 @@ from app.schemas.surat_schema import (
 from app.services.surat_service import SuratService
 from app.utils.dependencies import get_current_user, get_current_user_flexible, require_role
 from app.utils.upload import save_pdf_upload
+from app.utils.storage import storage_service
 
 router = APIRouter(prefix="/api/surat", tags=["Surat"])
 
@@ -50,12 +52,33 @@ def create_external_letter(
     lecturer_ids: str = Form(default=""),
     signer_configs_json: str = Form(default=""),
     is_sequential: bool = Form(default=False),
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(default=None),
+    storage_key: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.MAHASISWA)),
 ):
     import json
-    file_path = save_pdf_upload(file, prefix=f"ext_{current_user.id}")
+    if bool(file) == bool(storage_key):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kirim tepat satu sumber PDF: file atau storage_key",
+        )
+
+    if storage_key:
+        expected_prefix = f"external/{current_user.id}/"
+        if not storage_key.startswith(expected_prefix) or not storage_key.endswith(".pdf"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage key tidak valid")
+        try:
+            pdf_bytes = storage_service.get_file_content(storage_key)
+            from pypdf import PdfReader
+            PdfReader(BytesIO(pdf_bytes))
+        except FileNotFoundError:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PDF belum ditemukan di Storage")
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File Storage bukan PDF yang valid")
+        file_path = storage_key
+    else:
+        file_path = save_pdf_upload(file, prefix=f"ext_{current_user.id}")
 
     signer_configs = None
     if signer_configs_json.strip():
@@ -131,12 +154,13 @@ def get_pending_admin(
 @router.post("/{surat_id}/approve", response_model=SuratResponse)
 def approve_letter(
     surat_id: int,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
     service = SuratService(db)
-    return service.approve_by_admin(surat_id, current_user.id, background_tasks)
+    # Vercel functions can stop after a response. Generate the final PDF before
+    # returning so an approved document is immediately durable and verifiable.
+    return service.approve_by_admin(surat_id, current_user.id)
 
 
 @router.post("/{surat_id}/reject", response_model=SuratResponse)
