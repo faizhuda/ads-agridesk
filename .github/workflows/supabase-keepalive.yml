@@ -1,0 +1,18 @@
+name: Keep Supabase project active
+
+on:
+  schedule:
+    # GitHub Actions uses UTC: 08:17 and 20:17 in Jakarta.
+    - cron: "17 1,13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Query Supabase through the Agridesk API
+        run: curl --fail --silent --show-error --max-time 30 --retry 3 --retry-delay 10 https://agridesk-api.vercel.app/health

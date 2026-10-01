@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.controllers import (
     auth_controller,
@@ -13,7 +15,7 @@ from app.controllers import (
     notification_controller,
     storage_controller,
 )
-from app.database import SessionLocal
+from app.database import SessionLocal, get_db
 from app.utils.template_seed import seed_default_internal_templates
 from app.domain.exceptions import (
     AgrideskError,
@@ -88,3 +90,10 @@ def seed_letter_templates() -> None:
 @app.get("/")
 def root():
     return {"message": "Agridesk API is running"}
+
+
+@app.get("/health")
+def health(db: Session = Depends(get_db)):
+    """Check that both the API and its database are reachable."""
+    db.execute(text("SELECT 1"))
+    return {"status": "ok", "database": "ok"}
